@@ -25,7 +25,7 @@ type ISingleStageCallContext[DataType any] interface {
 	Initialize() (types.ResponseStatus, error)
 
 	// Used to get any supplemental state required during initialization - anything in here will be fed into an hd.Query() multicall
-	GetState(mc *batch.MultiCaller)
+	GetState(mc *batch.MultiCaller) error
 
 	// Prepare the response data in whatever way the context needs to do
 	PrepareData(data *DataType, opts *bind.TransactOpts) (types.ResponseStatus, error)
@@ -141,8 +141,7 @@ func runSingleStageRoute[DataType any](ctx ISingleStageCallContext[DataType], se
 
 	// Get the context-specific contract state
 	err = q.Query(func(mc *batch.MultiCaller) error {
-		ctx.GetState(mc)
-		return nil
+		return ctx.GetState(mc)
 	}, nil)
 	if err != nil {
 		return types.ResponseStatus_Error, nil, fmt.Errorf("error running chain state query: %w", err)
