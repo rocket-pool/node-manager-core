@@ -44,4 +44,7 @@ type LoggerOptions struct {
 
 	// True to include the source code position of the log statement in log messages
 	AddSource bool
+
+	// True to enable HTTP request tracing
+	EnableHttpTracing bool
 }

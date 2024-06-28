@@ -3,25 +3,30 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rocket-pool/node-manager-core/api/types"
 	"github.com/rocket-pool/node-manager-core/beacon"
+	"github.com/rocket-pool/node-manager-core/log"
 )
 
 // This is a proxy for multiple Beacon clients, providing natural fallback support if one of them fails.
 type BeaconClientManager struct {
-	primaryBc       beacon.IBeaconClient
-	fallbackBc      beacon.IBeaconClient
-	primaryReady    bool
-	fallbackReady   bool
-	expectedChainID uint
-	fallbackEnabled bool
+	primaryBc        beacon.IBeaconClient
+	fallbackBc       beacon.IBeaconClient
+	primaryReady     bool
+	fallbackReady    bool
+	expectedChainID  uint
+	fallbackEnabled  bool
+	primaryFailTime  time.Time
+	fallbackFailTime time.Time
+	recheckTime      time.Duration
 }
 
 // Creates a new BeaconClientManager instance
-func NewBeaconClientManager(primaryBc beacon.IBeaconClient, chainID uint, clientTimeout time.Duration) *BeaconClientManager {
+func NewBeaconClientManager(primaryBc beacon.IBeaconClient, chainID uint) *BeaconClientManager {
 	return &BeaconClientManager{
 		primaryBc:       primaryBc,
 		primaryReady:    true,
@@ -32,7 +37,7 @@ func NewBeaconClientManager(primaryBc beacon.IBeaconClient, chainID uint, client
 }
 
 // Creates a new BeaconClientManager instance with a fallback client
-func NewBeaconClientManagerWithFallback(primaryBc beacon.IBeaconClient, fallbackBc beacon.IBeaconClient, chainID uint, clientTimeout time.Duration) *BeaconClientManager {
+func NewBeaconClientManagerWithFallback(primaryBc beacon.IBeaconClient, fallbackBc beacon.IBeaconClient, chainID uint, clientRecheckTime time.Duration) *BeaconClientManager {
 	return &BeaconClientManager{
 		primaryBc:       primaryBc,
 		fallbackBc:      fallbackBc,
@@ -40,6 +45,7 @@ func NewBeaconClientManagerWithFallback(primaryBc beacon.IBeaconClient, fallback
 		fallbackReady:   true,
 		expectedChainID: chainID,
 		fallbackEnabled: true,
+		recheckTime:     clientRecheckTime,
 	}
 }
 
@@ -64,7 +70,7 @@ func (m *BeaconClientManager) IsFallbackReady() bool {
 }
 
 func (m *BeaconClientManager) IsFallbackEnabled() bool {
-	return m.fallbackBc != nil
+	return m.fallbackEnabled
 }
 
 func (m *BeaconClientManager) GetClientTypeName() string {
@@ -73,10 +79,49 @@ func (m *BeaconClientManager) GetClientTypeName() string {
 
 func (m *BeaconClientManager) SetPrimaryReady(ready bool) {
 	m.primaryReady = ready
+	if ready {
+		m.primaryFailTime = time.Time{}
+	} else {
+		m.primaryFailTime = time.Now()
+	}
 }
 
 func (m *BeaconClientManager) SetFallbackReady(ready bool) {
 	m.fallbackReady = ready
+	if ready {
+		m.fallbackFailTime = time.Time{}
+	} else {
+		m.fallbackFailTime = time.Now()
+	}
+}
+
+func (m *BeaconClientManager) RecheckFailTimes(logger *log.Logger) {
+	if !m.fallbackEnabled {
+		return
+	}
+
+	if !m.primaryReady {
+		timeSincePrimaryFail := time.Since(m.primaryFailTime)
+		if time.Since(m.primaryFailTime) > m.recheckTime {
+			if logger != nil {
+				logger.Info("Reconnecting primary Beacon client",
+					slog.Duration("elapsed", timeSincePrimaryFail),
+				)
+			}
+			m.SetPrimaryReady(true)
+		}
+	}
+	if !m.fallbackReady {
+		timeSinceFallbackFail := time.Since(m.fallbackFailTime)
+		if time.Since(m.fallbackFailTime) > m.recheckTime {
+			if logger != nil {
+				logger.Info("Reconnecting fallback Beacon client",
+					slog.Duration("elapsed", timeSinceFallbackFail),
+				)
+			}
+			m.SetFallbackReady(true)
+		}
+	}
 }
 
 /// =======================

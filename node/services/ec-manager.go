@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"time"
@@ -12,41 +13,43 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	apitypes "github.com/rocket-pool/node-manager-core/api/types"
 	"github.com/rocket-pool/node-manager-core/eth"
+	"github.com/rocket-pool/node-manager-core/log"
 )
 
 // This is a proxy for multiple ETH clients, providing natural fallback support if one of them fails.
 type ExecutionClientManager struct {
-	primaryEc       eth.IExecutionClient
-	fallbackEc      eth.IExecutionClient
-	primaryReady    bool
-	fallbackReady   bool
-	expectedChainID uint
-	timeout         time.Duration
-	fallbackEnabled bool
+	primaryEc        eth.IExecutionClient
+	fallbackEc       eth.IExecutionClient
+	primaryReady     bool
+	fallbackReady    bool
+	expectedChainID  uint
+	fallbackEnabled  bool
+	primaryFailTime  time.Time
+	fallbackFailTime time.Time
+	recheckTime      time.Duration
 }
 
 // Creates a new ExecutionClientManager instance
-func NewExecutionClientManager(primaryEc eth.IExecutionClient, chainID uint, clientTimeout time.Duration) *ExecutionClientManager {
+func NewExecutionClientManager(primaryEc eth.IExecutionClient, chainID uint) *ExecutionClientManager {
 	return &ExecutionClientManager{
 		primaryEc:       primaryEc,
 		primaryReady:    true,
 		fallbackReady:   false,
 		expectedChainID: chainID,
-		timeout:         clientTimeout,
 		fallbackEnabled: false,
 	}
 }
 
 // Creates a new ExecutionClientManager instance that includes a fallback client
-func NewExecutionClientManagerWithFallback(primaryEc eth.IExecutionClient, fallbackEc eth.IExecutionClient, chainID uint, clientTimeout time.Duration) *ExecutionClientManager {
+func NewExecutionClientManagerWithFallback(primaryEc eth.IExecutionClient, fallbackEc eth.IExecutionClient, chainID uint, clientRecheckTime time.Duration) *ExecutionClientManager {
 	return &ExecutionClientManager{
 		primaryEc:       primaryEc,
 		fallbackEc:      fallbackEc,
 		primaryReady:    true,
 		fallbackReady:   true,
 		expectedChainID: chainID,
-		timeout:         clientTimeout,
 		fallbackEnabled: true,
+		recheckTime:     clientRecheckTime,
 	}
 }
 
@@ -71,7 +74,7 @@ func (m *ExecutionClientManager) IsFallbackReady() bool {
 }
 
 func (m *ExecutionClientManager) IsFallbackEnabled() bool {
-	return m.fallbackEc != nil
+	return m.fallbackEnabled
 }
 
 func (m *ExecutionClientManager) GetClientTypeName() string {
@@ -80,10 +83,49 @@ func (m *ExecutionClientManager) GetClientTypeName() string {
 
 func (m *ExecutionClientManager) SetPrimaryReady(ready bool) {
 	m.primaryReady = ready
+	if ready {
+		m.primaryFailTime = time.Time{}
+	} else {
+		m.primaryFailTime = time.Now()
+	}
 }
 
 func (m *ExecutionClientManager) SetFallbackReady(ready bool) {
 	m.fallbackReady = ready
+	if ready {
+		m.fallbackFailTime = time.Time{}
+	} else {
+		m.fallbackFailTime = time.Now()
+	}
+}
+
+func (m *ExecutionClientManager) RecheckFailTimes(logger *log.Logger) {
+	if !m.fallbackEnabled {
+		return
+	}
+
+	if !m.primaryReady {
+		timeSincePrimaryFail := time.Since(m.primaryFailTime)
+		if time.Since(m.primaryFailTime) > m.recheckTime {
+			if logger != nil {
+				logger.Info("Reconnecting primary Execution client",
+					slog.Duration("elapsed", timeSincePrimaryFail),
+				)
+			}
+			m.SetPrimaryReady(true)
+		}
+	}
+	if !m.fallbackReady {
+		timeSinceFallbackFail := time.Since(m.fallbackFailTime)
+		if time.Since(m.fallbackFailTime) > m.recheckTime {
+			if logger != nil {
+				logger.Info("Reconnecting fallback Execution client",
+					slog.Duration("elapsed", timeSinceFallbackFail),
+				)
+			}
+			m.SetFallbackReady(true)
+		}
+	}
 }
 
 /// ========================

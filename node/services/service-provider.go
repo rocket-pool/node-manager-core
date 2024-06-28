@@ -5,10 +5,8 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
-	"time"
 
 	dclient "github.com/docker/docker/client"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/rocket-pool/node-manager-core/beacon/client"
 	"github.com/rocket-pool/node-manager-core/config"
 	"github.com/rocket-pool/node-manager-core/eth"
@@ -42,36 +40,38 @@ type ServiceProvider struct {
 }
 
 // Creates a new ServiceProvider instance based on the given config
-func NewServiceProvider(cfg config.IConfig, clientTimeout time.Duration) (*ServiceProvider, error) {
+func NewServiceProvider(cfg config.IConfig) (*ServiceProvider, error) {
 	resources := cfg.GetNetworkResources()
 
 	// EC Manager
 	var ecManager *ExecutionClientManager
 	primaryEcUrl, fallbackEcUrl := cfg.GetExecutionClientUrls()
-	primaryEc, err := ethclient.Dial(primaryEcUrl)
+	timeouts := cfg.GetExecutionClientTimeouts()
+	primaryEc, err := eth.NewStandardRpcClient(primaryEcUrl, timeouts.FastTimeout, timeouts.SlowTimeout)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to primary EC at [%s]: %w", primaryEcUrl, err)
 	}
 	if fallbackEcUrl != "" {
 		// Get the fallback EC url, if applicable
-		fallbackEc, err := ethclient.Dial(fallbackEcUrl)
+		fallbackEc, err := eth.NewStandardRpcClient(fallbackEcUrl, timeouts.FastTimeout, timeouts.SlowTimeout)
 		if err != nil {
 			return nil, fmt.Errorf("error connecting to fallback EC at [%s]: %w", fallbackEcUrl, err)
 		}
-		ecManager = NewExecutionClientManagerWithFallback(primaryEc, fallbackEc, resources.ChainID, clientTimeout)
+		ecManager = NewExecutionClientManagerWithFallback(primaryEc, fallbackEc, resources.ChainID, timeouts.RecheckDelay)
 	} else {
-		ecManager = NewExecutionClientManager(primaryEc, resources.ChainID, clientTimeout)
+		ecManager = NewExecutionClientManager(primaryEc, resources.ChainID)
 	}
 
 	// Beacon manager
 	var bcManager *BeaconClientManager
 	primaryBnUrl, fallbackBnUrl := cfg.GetBeaconNodeUrls()
-	primaryBc := client.NewStandardHttpClient(primaryBnUrl, clientTimeout)
+	timeouts = cfg.GetBeaconNodeTimeouts()
+	primaryBc := client.NewStandardHttpClient(primaryBnUrl, timeouts.FastTimeout, timeouts.SlowTimeout)
 	if fallbackBnUrl != "" {
-		fallbackBc := client.NewStandardHttpClient(fallbackBnUrl, clientTimeout)
-		bcManager = NewBeaconClientManagerWithFallback(primaryBc, fallbackBc, resources.ChainID, clientTimeout)
+		fallbackBc := client.NewStandardHttpClient(fallbackBnUrl, timeouts.FastTimeout, timeouts.SlowTimeout)
+		bcManager = NewBeaconClientManagerWithFallback(primaryBc, fallbackBc, resources.ChainID, timeouts.RecheckDelay)
 	} else {
-		bcManager = NewBeaconClientManager(primaryBc, resources.ChainID, clientTimeout)
+		bcManager = NewBeaconClientManager(primaryBc, resources.ChainID)
 	}
 
 	// Docker client

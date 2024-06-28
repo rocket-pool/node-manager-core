@@ -23,6 +23,12 @@ type LocalBeaconConfig struct {
 	// Toggle for forwarding the HTTP API port outside of Docker
 	OpenHttpPort Parameter[RpcPortMode]
 
+	// Number of seconds to wait for a fast request to complete
+	FastTimeout Parameter[uint64]
+
+	// Number of seconds to wait for a slow request to complete
+	SlowTimeout Parameter[uint64]
+
 	// Subconfigs
 	Lighthouse *LighthouseBnConfig
 	Lodestar   *LodestarBnConfig
@@ -138,6 +144,34 @@ func NewLocalBeaconConfig() *LocalBeaconConfig {
 				Network_All: RpcPortMode_Closed,
 			},
 		},
+
+		FastTimeout: Parameter[uint64]{
+			ParameterCommon: &ParameterCommon{
+				ID:                 ids.FastTimeoutID,
+				Name:               "Fast Timeout",
+				Description:        "Number of seconds to wait for a request to complete that is expected to be fast and light before timing out the request.",
+				AffectsContainers:  []ContainerID{ContainerID_Daemon},
+				CanBeBlank:         false,
+				OverwriteOnUpgrade: false,
+			},
+			Default: map[Network]uint64{
+				Network_All: 5,
+			},
+		},
+
+		SlowTimeout: Parameter[uint64]{
+			ParameterCommon: &ParameterCommon{
+				ID:                 ids.SlowTimeoutID,
+				Name:               "Slow Timeout",
+				Description:        "Number of seconds to wait for a request to complete that is expected to be slow and heavy, either taking a long time to process or returning a large amount of data, before timing out the request. Examples include querying the Beacon Node for the state of a large number of validators.",
+				AffectsContainers:  []ContainerID{ContainerID_Daemon},
+				CanBeBlank:         false,
+				OverwriteOnUpgrade: false,
+			},
+			Default: map[Network]uint64{
+				Network_All: 30,
+			},
+		},
 	}
 
 	cfg.Lighthouse = NewLighthouseBnConfig()
@@ -162,6 +196,8 @@ func (cfg *LocalBeaconConfig) GetParameters() []IParameter {
 		&cfg.P2pPort,
 		&cfg.HttpPort,
 		&cfg.OpenHttpPort,
+		&cfg.FastTimeout,
+		&cfg.SlowTimeout,
 	}
 }
 

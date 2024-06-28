@@ -1,5 +1,7 @@
 package services
 
+import "github.com/rocket-pool/node-manager-core/log"
+
 type IClientManager[ClientType any] interface {
 	GetPrimaryClient() ClientType
 	GetFallbackClient() ClientType
@@ -15,4 +17,5 @@ type iClientManagerImpl[ClientType any] interface {
 	// Internal functions
 	SetPrimaryReady(bool)
 	SetFallbackReady(bool)
+	RecheckFailTimes(logger *log.Logger)
 }

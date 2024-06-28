@@ -32,6 +32,9 @@ type LoggerConfig struct {
 
 	// Toggle for compressing rotated logs
 	Compress Parameter[bool]
+
+	// Toggle for enabling HTTP request tracing
+	EnableHttpTracing Parameter[bool]
 }
 
 // Generates a new Logger configuration
@@ -174,6 +177,18 @@ func NewLoggerConfig() *LoggerConfig {
 				Network_All: true,
 			},
 		},
+
+		EnableHttpTracing: Parameter[bool]{
+			ParameterCommon: &ParameterCommon{
+				ID:                ids.LoggerEnableHttpTracingID,
+				Name:              "Enable HTTP Tracing",
+				Description:       "When enabled, each step of every HTTP request for the Execution Client and Beacon Node will be logged. This results in very verbose log files, so only enable this when you need to debug HTTP requests to your clients specifically.",
+				AffectsContainers: []ContainerID{ContainerID_Daemon},
+			},
+			Default: map[Network]bool{
+				Network_All: false,
+			},
+		},
 	}
 }
 
@@ -193,6 +208,7 @@ func (cfg *LoggerConfig) GetParameters() []IParameter {
 		&cfg.MaxAge,
 		&cfg.LocalTime,
 		&cfg.Compress,
+		&cfg.EnableHttpTracing,
 	}
 }
 
@@ -204,13 +220,14 @@ func (cfg *LoggerConfig) GetSubconfigs() map[string]IConfigSection {
 // Calculate the default number of Geth peers
 func (cfg *LoggerConfig) GetOptions() log.LoggerOptions {
 	return log.LoggerOptions{
-		MaxSize:    int(cfg.MaxSize.Value),
-		MaxBackups: int(cfg.MaxBackups.Value),
-		MaxAge:     int(cfg.MaxAge.Value),
-		LocalTime:  cfg.LocalTime.Value,
-		Compress:   cfg.Compress.Value,
-		Format:     cfg.Format.Value,
-		Level:      cfg.Level.Value,
-		AddSource:  cfg.AddSource.Value,
+		MaxSize:           int(cfg.MaxSize.Value),
+		MaxBackups:        int(cfg.MaxBackups.Value),
+		MaxAge:            int(cfg.MaxAge.Value),
+		LocalTime:         cfg.LocalTime.Value,
+		Compress:          cfg.Compress.Value,
+		Format:            cfg.Format.Value,
+		Level:             cfg.Level.Value,
+		AddSource:         cfg.AddSource.Value,
+		EnableHttpTracing: cfg.EnableHttpTracing.Value,
 	}
 }
