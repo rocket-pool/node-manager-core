@@ -107,6 +107,7 @@ func (cfg *FallbackConfig) GetParameters() []IParameter {
 		&cfg.EcHttpUrl,
 		&cfg.BnHttpUrl,
 		&cfg.PrysmRpcUrl,
+		&cfg.ReconnectDelay,
 	}
 }
 
