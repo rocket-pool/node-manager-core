@@ -23,7 +23,7 @@ func NewBitflyNodeMetricsConfig() *BitflyNodeMetricsConfig {
 				Description:       "The API key used to authenticate your Beaconcha.in node metrics integration. Can be found in your Beaconcha.in account settings.\n\nPlease visit https://beaconcha.in/user/settings#api to access your account information.",
 				AffectsContainers: []ContainerID{ContainerID_BeaconNode, ContainerID_ValidatorClient},
 				// ensures the string is 28 characters of Base64
-				Regex:              "^[A-Za-z0-9+/]{28}$",
+				Regex:              "^[A-Za-z0-9+/=]{28}$",
 				CanBeBlank:         true,
 				OverwriteOnUpgrade: false,
 			},
