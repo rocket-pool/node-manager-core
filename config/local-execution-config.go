@@ -26,6 +26,12 @@ type LocalExecutionConfig struct {
 	// P2P traffic port
 	P2pPort Parameter[uint16]
 
+	// Number of milliseconds to wait for a fast request to complete
+	FastTimeoutMs Parameter[uint64]
+
+	// Number of milliseconds to wait for a slow request to complete
+	SlowTimeoutMs Parameter[uint64]
+
 	// Subconfigs
 	Geth       *GethConfig
 	Nethermind *NethermindConfig
@@ -146,6 +152,34 @@ func NewLocalExecutionConfig() *LocalExecutionConfig {
 				Network_All: 30303,
 			},
 		},
+
+		FastTimeoutMs: Parameter[uint64]{
+			ParameterCommon: &ParameterCommon{
+				ID:                 ids.FastTimeoutID,
+				Name:               "Fast Timeout",
+				Description:        "Number of milliseconds to wait for a request to complete that is expected to be fast and light before timing out the request.",
+				AffectsContainers:  []ContainerID{ContainerID_Daemon},
+				CanBeBlank:         false,
+				OverwriteOnUpgrade: false,
+			},
+			Default: map[Network]uint64{
+				Network_All: 5000,
+			},
+		},
+
+		SlowTimeoutMs: Parameter[uint64]{
+			ParameterCommon: &ParameterCommon{
+				ID:                 ids.SlowTimeoutID,
+				Name:               "Slow Timeout",
+				Description:        "Number of milliseconds to wait for a request to complete that is expected to be slow and heavy, either taking a long time to process or returning a large amount of data, before timing out the request. Examples include filtering through Ethereum event logs.",
+				AffectsContainers:  []ContainerID{ContainerID_Daemon},
+				CanBeBlank:         false,
+				OverwriteOnUpgrade: false,
+			},
+			Default: map[Network]uint64{
+				Network_All: 30000,
+			},
+		},
 	}
 
 	// Create the subconfigs
@@ -171,6 +205,8 @@ func (cfg *LocalExecutionConfig) GetParameters() []IParameter {
 		&cfg.EnginePort,
 		&cfg.OpenApiPorts,
 		&cfg.P2pPort,
+		&cfg.FastTimeoutMs,
+		&cfg.SlowTimeoutMs,
 	}
 }
 

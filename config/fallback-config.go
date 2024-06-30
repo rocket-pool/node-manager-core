@@ -15,6 +15,9 @@ type FallbackConfig struct {
 
 	// The URL of the Prysm gRPC endpoint (only needed if using Prysm VCs)
 	PrysmRpcUrl Parameter[string]
+
+	// The delay in milliseconds when checking a client again after it disconnects during a request
+	ReconnectDelayMs Parameter[uint64]
 }
 
 // Generates a new FallbackConfig configuration
@@ -75,6 +78,20 @@ func NewFallbackConfig() *FallbackConfig {
 				Network_All: "",
 			},
 		},
+
+		ReconnectDelayMs: Parameter[uint64]{
+			ParameterCommon: &ParameterCommon{
+				ID:                 ids.FallbackReconnectDelayID,
+				Name:               "Reconnect Delay",
+				Description:        "The delay, in milliseconds, to wait after the primary Execution Client or primary Beacon Node disconnects during a request before trying it again.",
+				AffectsContainers:  []ContainerID{ContainerID_Daemon},
+				CanBeBlank:         false,
+				OverwriteOnUpgrade: false,
+			},
+			Default: map[Network]uint64{
+				Network_All: 60000,
+			},
+		},
 	}
 }
 
@@ -90,6 +107,7 @@ func (cfg *FallbackConfig) GetParameters() []IParameter {
 		&cfg.EcHttpUrl,
 		&cfg.BnHttpUrl,
 		&cfg.PrysmRpcUrl,
+		&cfg.ReconnectDelayMs,
 	}
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/http/httptrace"
 	"os"
 	"path/filepath"
 
@@ -13,6 +14,11 @@ import (
 // Logger is a simple wrapper for a slog Logger that writes to a file on disk.
 type Logger struct {
 	*slog.Logger
+
+	// The HTTP client tracer for this logger if HTTP tracing was enabled
+	HttpTracer *httptrace.ClientTrace
+
+	// Internal fields
 	logFile *lumberjack.Logger
 	path    string
 }
@@ -51,11 +57,16 @@ func NewLogger(logFilePath string, options LoggerOptions) (*Logger, error) {
 	case LogFormat_Logfmt:
 		handler = slog.NewTextHandler(logFile, logOptions)
 	}
-	return &Logger{
+	logger := &Logger{
 		Logger:  slog.New(handler),
 		logFile: logFile,
 		path:    logFilePath,
-	}, nil
+	}
+
+	if options.EnableHttpTracing {
+		logger.HttpTracer = logger.createHttpClientTracer()
+	}
+	return logger, nil
 }
 
 // Creates a new logger that uses the slog default logger, which writes to the terminal instead of a file.
@@ -106,4 +117,56 @@ func (l *Logger) CreateContextWithLogger(parent context.Context) context.Context
 func FromContext(ctx context.Context) (*Logger, bool) {
 	log, ok := ctx.Value(ContextLogKey).(*Logger)
 	return log, ok
+}
+
+// ========================
+// === Internal Methods ===
+// ========================
+
+// Creates an HTTP client tracer for logging HTTP client events
+func (l *Logger) createHttpClientTracer() *httptrace.ClientTrace {
+	tracer := &httptrace.ClientTrace{}
+	tracer.ConnectDone = func(network, addr string, err error) {
+		l.Debug("HTTP Connect Done",
+			slog.String("network", network),
+			slog.String("addr", addr),
+			Err(err),
+		)
+	}
+	tracer.DNSDone = func(dnsInfo httptrace.DNSDoneInfo) {
+		l.Debug("HTTP DNS Done",
+			slog.String("addrs", fmt.Sprint(dnsInfo.Addrs)),
+			slog.Bool("coalesced", dnsInfo.Coalesced),
+			Err(dnsInfo.Err),
+		)
+	}
+	tracer.DNSStart = func(dnsInfo httptrace.DNSStartInfo) {
+		l.Debug("HTTP DNS Start",
+			slog.String("host", dnsInfo.Host),
+		)
+	}
+	tracer.GotConn = func(connInfo httptrace.GotConnInfo) {
+		l.Debug("HTTP Got Connection",
+			slog.Bool("reused", connInfo.Reused),
+			slog.Bool("wasIdle", connInfo.WasIdle),
+			slog.Duration("idleTime", connInfo.IdleTime),
+			slog.String("localAddr", connInfo.Conn.LocalAddr().String()),
+			slog.String("remoteAddr", connInfo.Conn.RemoteAddr().String()),
+		)
+	}
+	tracer.GotFirstResponseByte = func() {
+		l.Debug("HTTP Got First Response Byte")
+	}
+	tracer.PutIdleConn = func(err error) {
+		l.Debug("HTTP Put Idle Connection",
+			Err(err),
+		)
+	}
+	tracer.WroteRequest = func(wroteInfo httptrace.WroteRequestInfo) {
+		l.Debug("HTTP Wrote Request",
+			Err(wroteInfo.Err),
+		)
+	}
+
+	return tracer
 }

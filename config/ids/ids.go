@@ -11,6 +11,8 @@ const (
 	PortID                  string = "port"
 	OpenPortID              string = "openPort"
 	HttpUrlID               string = "httpUrl"
+	FastTimeoutID           string = "fastTimeout"
+	SlowTimeoutID           string = "slowTimeout"
 	EcID                    string = "executionClient"
 	BnID                    string = "beaconNode"
 	GraffitiID              string = "graffiti"
@@ -19,14 +21,15 @@ const (
 	CacheSizeID             string = "cacheSize"
 
 	// Logger
-	LoggerLevelID      string = "level"
-	LoggerFormatID     string = "format"
-	LoggerAddSourceID  string = "addSource"
-	LoggerMaxSizeID    string = "maxSize"
-	LoggerMaxBackupsID string = "maxBackups"
-	LoggerMaxAgeID     string = "maxAge"
-	LoggerLocalTimeID  string = "localTime"
-	LoggerCompressID   string = "compress"
+	LoggerLevelID             string = "level"
+	LoggerFormatID            string = "format"
+	LoggerAddSourceID         string = "addSource"
+	LoggerMaxSizeID           string = "maxSize"
+	LoggerMaxBackupsID        string = "maxBackups"
+	LoggerMaxAgeID            string = "maxAge"
+	LoggerLocalTimeID         string = "localTime"
+	LoggerCompressID          string = "compress"
+	LoggerEnableHttpTracingID string = "enableHttpTracing"
 
 	// Besu
 	BesuJvmHeapSizeID   string = "jvmHeapSize"
@@ -48,6 +51,7 @@ const (
 	FallbackUseFallbackClientsID string = "useFallbackClients"
 	FallbackEcHttpUrlID          string = "ecHttpUrl"
 	FallbackBnHttpUrlID          string = "bnHttpUrl"
+	FallbackReconnectDelayID     string = "reconnectDelay"
 
 	// Geth
 	GethEvmTimeoutID  string = "evmTimeout"

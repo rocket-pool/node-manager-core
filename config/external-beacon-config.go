@@ -14,6 +14,12 @@ type ExternalBeaconConfig struct {
 
 	// The URL of the Prysm gRPC endpoint (only needed if using Prysm VCs)
 	PrysmRpcUrl Parameter[string]
+
+	// Number of milliseconds to wait for a fast request to complete
+	FastTimeoutMs Parameter[uint64]
+
+	// Number of milliseconds to wait for a slow request to complete
+	SlowTimeoutMs Parameter[uint64]
 }
 
 // Generates a new ExternalBeaconConfig configuration
@@ -92,6 +98,34 @@ func NewExternalBeaconConfig() *ExternalBeaconConfig {
 				Network_All: "",
 			},
 		},
+
+		FastTimeoutMs: Parameter[uint64]{
+			ParameterCommon: &ParameterCommon{
+				ID:                 ids.FastTimeoutID,
+				Name:               "Fast Timeout",
+				Description:        "Number of milliseconds to wait for a request to complete that is expected to be fast and light before timing out the request.",
+				AffectsContainers:  []ContainerID{ContainerID_Daemon},
+				CanBeBlank:         false,
+				OverwriteOnUpgrade: false,
+			},
+			Default: map[Network]uint64{
+				Network_All: 5000,
+			},
+		},
+
+		SlowTimeoutMs: Parameter[uint64]{
+			ParameterCommon: &ParameterCommon{
+				ID:                 ids.SlowTimeoutID,
+				Name:               "Slow Timeout",
+				Description:        "Number of milliseconds to wait for a request to complete that is expected to be slow and heavy, either taking a long time to process or returning a large amount of data, before timing out the request. Examples include querying the Beacon Node for the state of a large number of validators.",
+				AffectsContainers:  []ContainerID{ContainerID_Daemon},
+				CanBeBlank:         false,
+				OverwriteOnUpgrade: false,
+			},
+			Default: map[Network]uint64{
+				Network_All: 30000,
+			},
+		},
 	}
 }
 
@@ -106,6 +140,8 @@ func (cfg *ExternalBeaconConfig) GetParameters() []IParameter {
 		&cfg.BeaconNode,
 		&cfg.HttpUrl,
 		&cfg.PrysmRpcUrl,
+		&cfg.FastTimeoutMs,
+		&cfg.SlowTimeoutMs,
 	}
 }
 
