@@ -66,9 +66,19 @@ func NewServiceProvider(cfg config.IConfig) (*ServiceProvider, error) {
 	var bcManager *BeaconClientManager
 	primaryBnUrl, fallbackBnUrl := cfg.GetBeaconNodeUrls()
 	timeouts = cfg.GetBeaconNodeTimeouts()
-	primaryBc := client.NewStandardHttpClient(primaryBnUrl, timeouts.FastTimeout, timeouts.SlowTimeout)
+	opts := &client.StandardHttpClientOpts{
+		FastTimeout: timeouts.FastTimeout,
+		SlowTimeout: timeouts.SlowTimeout,
+	}
+	primaryBc, err := client.NewStandardHttpClient(primaryBnUrl, opts)
+	if err != nil {
+		return nil, fmt.Errorf("error connecting to primary BC at [%s]: %w", primaryBnUrl, err)
+	}
 	if fallbackBnUrl != "" {
-		fallbackBc := client.NewStandardHttpClient(fallbackBnUrl, timeouts.FastTimeout, timeouts.SlowTimeout)
+		fallbackBc, err := client.NewStandardHttpClient(fallbackBnUrl, opts)
+		if err != nil {
+			return nil, fmt.Errorf("error connecting to fallback BC at [%s]: %w", fallbackBnUrl, err)
+		}
 		bcManager = NewBeaconClientManagerWithFallback(primaryBc, fallbackBc, resources.ChainID, timeouts.RecheckDelay)
 	} else {
 		bcManager = NewBeaconClientManager(primaryBc, resources.ChainID)

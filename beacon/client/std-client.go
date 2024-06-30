@@ -586,3 +586,8 @@ func (c *StandardClient) getValidatorsByOpts(ctx context.Context, pubkeysOrIndic
 
 	return ValidatorsResponse{Data: trueData}, nil
 }
+
+// Get an eth2 epoch number by time
+func epochAt(config beacon.Eth2Config, time uint64) uint64 {
+	return config.GenesisEpoch + (time-config.GenesisTime)/config.SecondsPerEpoch
+}

@@ -8,18 +8,17 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptrace"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/goccy/go-json"
-	"github.com/rocket-pool/node-manager-core/beacon"
 	"github.com/rocket-pool/node-manager-core/log"
 )
 
 const (
-	RequestUrlFormat   = "%s%s"
 	RequestContentType = "application/json"
 
 	RequestSyncStatusPath                  = "/eth/v1/node/syncing"
@@ -40,34 +39,52 @@ const (
 
 	MaxRequestValidatorsCount = 600
 
-	fastGetMethod string = "Fast GET"
-	slowGetMethod string = "Slow GET"
-	postMethod    string = "POST"
+	DefaultFastTimeout time.Duration = 5 * time.Second
+	DefaultSlowTimeout time.Duration = 30 * time.Second
 )
 
+type BeaconHttpProviderOpts struct {
+	DefaultFastTimeout time.Duration
+	DefaultSlowTimeout time.Duration
+}
+
 type BeaconHttpProvider struct {
-	providerAddress string
-	fastClient      http.Client
-	slowClient      http.Client
+	baseUrl            *url.URL
+	httpClient         http.Client
+	defaultFastTimeout time.Duration
+	defaultSlowTimeout time.Duration
 }
 
 // Creates a new HTTP provider for the Beacon API
-// Most calls will use the fast timeout, but queries to validator status will use the slow timeout since they can be very large.
-// Set a timeout of 0 to disable it.
-func NewBeaconHttpProvider(providerAddress string, fastTimeout time.Duration, slowTimeout time.Duration) *BeaconHttpProvider {
-	return &BeaconHttpProvider{
-		providerAddress: providerAddress,
-		fastClient: http.Client{
-			Timeout: fastTimeout,
-		},
-		slowClient: http.Client{
-			Timeout: slowTimeout,
-		},
+func NewBeaconHttpProvider(providerAddress string, opts *BeaconHttpProviderOpts) (*BeaconHttpProvider, error) {
+	baseUrl, err := url.Parse(providerAddress)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing provider address [%s] into URL: %w", providerAddress, err)
 	}
+	provider := &BeaconHttpProvider{
+		baseUrl:    baseUrl,
+		httpClient: http.Client{},
+	}
+
+	// Specify the default timeouts to use for calls that aren't given one by the caller
+	if opts != nil {
+		provider.defaultFastTimeout = opts.DefaultFastTimeout
+		provider.defaultSlowTimeout = opts.DefaultSlowTimeout
+	} else {
+		provider.defaultFastTimeout = DefaultFastTimeout
+		provider.defaultSlowTimeout = DefaultSlowTimeout
+	}
+	return provider, nil
 }
 
 func (p *BeaconHttpProvider) Beacon_Attestations(ctx context.Context, blockId string) (AttestationsResponse, bool, error) {
-	responseBody, status, err := p.getFastRequest(ctx, fmt.Sprintf(RequestAttestationsPath, blockId))
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
+	// Run the request
+	url := p.baseUrl.JoinPath(fmt.Sprintf(RequestAttestationsPath, blockId))
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return AttestationsResponse{}, false, fmt.Errorf("error getting attestations data for slot %s: %w", blockId, err)
 	}
@@ -85,7 +102,13 @@ func (p *BeaconHttpProvider) Beacon_Attestations(ctx context.Context, blockId st
 }
 
 func (p *BeaconHttpProvider) Beacon_Block(ctx context.Context, blockId string) (BeaconBlockResponse, bool, error) {
-	responseBody, status, err := p.getFastRequest(ctx, fmt.Sprintf(RequestBeaconBlockPath, blockId))
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
+	// Run the request
+	url := p.baseUrl.JoinPath(fmt.Sprintf(RequestBeaconBlockPath, blockId))
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return BeaconBlockResponse{}, false, fmt.Errorf("error getting beacon block data: %w", err)
 	}
@@ -103,8 +126,14 @@ func (p *BeaconHttpProvider) Beacon_Block(ctx context.Context, blockId string) (
 }
 
 func (p *BeaconHttpProvider) Beacon_BlsToExecutionChanges_Post(ctx context.Context, request BLSToExecutionChangeRequest) error {
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
+	// Perform the post request
 	requestArray := []BLSToExecutionChangeRequest{request} // This route must be wrapped in an array
-	responseBody, status, err := p.postRequest(ctx, RequestWithdrawalCredentialsChangePath, requestArray)
+	url := p.baseUrl.JoinPath(RequestWithdrawalCredentialsChangePath)
+	responseBody, status, err := p.postRequest(ctx, url, requestArray)
 	if err != nil {
 		return fmt.Errorf("error broadcasting withdrawal credentials change for validator %s: %w", request.Message.ValidatorIndex, err)
 	}
@@ -115,15 +144,20 @@ func (p *BeaconHttpProvider) Beacon_BlsToExecutionChanges_Post(ctx context.Conte
 }
 
 func (p *BeaconHttpProvider) Beacon_Committees(ctx context.Context, stateId string, epoch *uint64) (CommitteesResponse, error) {
-	var committees CommitteesResponse
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultSlowTimeout)
+	defer cancel()
 
-	query := ""
+	// Create the URL
+	url := p.baseUrl.JoinPath(fmt.Sprintf(RequestCommitteePath, stateId))
 	if epoch != nil {
-		query = fmt.Sprintf("?epoch=%d", *epoch)
+		query := url.Query()
+		query.Add("epoch", strconv.FormatUint(*epoch, 10))
+		url.RawQuery = query.Encode()
 	}
 
 	// Committees responses are large, so let the json decoder read it in a buffered fashion
-	reader, status, err := getRequestReader(ctx, slowGetMethod, fmt.Sprintf(RequestCommitteePath, stateId)+query, p.providerAddress, p.slowClient)
+	reader, status, err := p.getRequestReader(ctx, url)
 	if err != nil {
 		return CommitteesResponse{}, fmt.Errorf("error getting committees: %w", err)
 	}
@@ -145,6 +179,7 @@ func (p *BeaconHttpProvider) Beacon_Committees(ctx context.Context, stateId stri
 	d.currentReader = &reader
 
 	// Begin decoding
+	var committees CommitteesResponse
 	if err := d.decoder.Decode(&committees); err != nil {
 		return CommitteesResponse{}, fmt.Errorf("error decoding committees: %w", err)
 	}
@@ -153,7 +188,13 @@ func (p *BeaconHttpProvider) Beacon_Committees(ctx context.Context, stateId stri
 }
 
 func (p *BeaconHttpProvider) Beacon_FinalityCheckpoints(ctx context.Context, stateId string) (FinalityCheckpointsResponse, error) {
-	responseBody, status, err := p.getFastRequest(ctx, fmt.Sprintf(RequestFinalityCheckpointsPath, stateId))
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
+	// Run the request
+	url := p.baseUrl.JoinPath(fmt.Sprintf(RequestFinalityCheckpointsPath, stateId))
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return FinalityCheckpointsResponse{}, fmt.Errorf("error getting finality checkpoints: %w", err)
 	}
@@ -168,7 +209,13 @@ func (p *BeaconHttpProvider) Beacon_FinalityCheckpoints(ctx context.Context, sta
 }
 
 func (p *BeaconHttpProvider) Beacon_Genesis(ctx context.Context) (GenesisResponse, error) {
-	responseBody, status, err := p.getFastRequest(ctx, RequestGenesisPath)
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
+	// Run the request
+	url := p.baseUrl.JoinPath(RequestGenesisPath)
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return GenesisResponse{}, fmt.Errorf("error getting genesis data: %w", err)
 	}
@@ -183,7 +230,13 @@ func (p *BeaconHttpProvider) Beacon_Genesis(ctx context.Context) (GenesisRespons
 }
 
 func (p *BeaconHttpProvider) Beacon_Header(ctx context.Context, blockId string) (BeaconBlockHeaderResponse, bool, error) {
-	responseBody, status, err := p.getFastRequest(ctx, fmt.Sprintf(RequestBeaconBlockHeaderPath, blockId))
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
+	// Run the request
+	url := p.baseUrl.JoinPath(fmt.Sprintf(RequestBeaconBlockHeaderPath, blockId))
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return BeaconBlockHeaderResponse{}, false, fmt.Errorf("error getting beacon block header data: %w", err)
 	}
@@ -201,11 +254,20 @@ func (p *BeaconHttpProvider) Beacon_Header(ctx context.Context, blockId string) 
 }
 
 func (p *BeaconHttpProvider) Beacon_Validators(ctx context.Context, stateId string, ids []string) (ValidatorsResponse, error) {
-	var query string
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultSlowTimeout)
+	defer cancel()
+
+	// Create the URL
+	url := p.baseUrl.JoinPath(fmt.Sprintf(RequestValidatorsPath, stateId))
 	if len(ids) > 0 {
-		query = fmt.Sprintf("?id=%s", strings.Join(ids, ","))
+		query := url.Query()
+		query.Add("id", strings.Join(ids, ","))
+		url.RawQuery = query.Encode()
 	}
-	responseBody, status, err := p.getSlowRequest(ctx, fmt.Sprintf(RequestValidatorsPath, stateId)+query)
+
+	// Run the request
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return ValidatorsResponse{}, fmt.Errorf("error getting validators: %w", err)
 	}
@@ -220,7 +282,13 @@ func (p *BeaconHttpProvider) Beacon_Validators(ctx context.Context, stateId stri
 }
 
 func (p *BeaconHttpProvider) Beacon_VoluntaryExits_Post(ctx context.Context, request VoluntaryExitRequest) error {
-	responseBody, status, err := p.postRequest(ctx, RequestVoluntaryExitPath, request)
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
+	// Perform the post request
+	url := p.baseUrl.JoinPath(RequestVoluntaryExitPath)
+	responseBody, status, err := p.postRequest(ctx, url, request)
 	if err != nil {
 		return fmt.Errorf("error broadcasting exit for validator at index %s: %w", request.Message.ValidatorIndex, err)
 	}
@@ -231,7 +299,13 @@ func (p *BeaconHttpProvider) Beacon_VoluntaryExits_Post(ctx context.Context, req
 }
 
 func (p *BeaconHttpProvider) Config_DepositContract(ctx context.Context) (Eth2DepositContractResponse, error) {
-	responseBody, status, err := p.getFastRequest(ctx, RequestEth2DepositContractMethod)
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
+	// Run the request
+	url := p.baseUrl.JoinPath(RequestEth2DepositContractMethod)
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return Eth2DepositContractResponse{}, fmt.Errorf("error getting eth2 deposit contract: %w", err)
 	}
@@ -246,8 +320,13 @@ func (p *BeaconHttpProvider) Config_DepositContract(ctx context.Context) (Eth2De
 }
 
 func (p *BeaconHttpProvider) Config_Spec(ctx context.Context) (Eth2ConfigResponse, error) {
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
 	// Run the request
-	responseBody, status, err := p.getFastRequest(ctx, RequestEth2ConfigPath)
+	url := p.baseUrl.JoinPath(RequestEth2ConfigPath)
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return Eth2ConfigResponse{}, fmt.Errorf("error getting eth2 config: %w", err)
 	}
@@ -264,8 +343,13 @@ func (p *BeaconHttpProvider) Config_Spec(ctx context.Context) (Eth2ConfigRespons
 }
 
 func (p *BeaconHttpProvider) Node_Syncing(ctx context.Context) (SyncStatusResponse, error) {
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
 	// Run the request
-	responseBody, status, err := p.getFastRequest(ctx, RequestSyncStatusPath)
+	url := p.baseUrl.JoinPath(RequestSyncStatusPath)
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return SyncStatusResponse{}, fmt.Errorf("error getting node sync status: %w", err)
 	}
@@ -282,8 +366,13 @@ func (p *BeaconHttpProvider) Node_Syncing(ctx context.Context) (SyncStatusRespon
 }
 
 func (p *BeaconHttpProvider) Validator_DutiesProposer(ctx context.Context, indices []string, epoch uint64) (ProposerDutiesResponse, error) {
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
 	// Run the request
-	responseBody, status, err := p.getFastRequest(ctx, fmt.Sprintf(RequestValidatorProposerDuties, strconv.FormatUint(epoch, 10)))
+	url := p.baseUrl.JoinPath(fmt.Sprintf(RequestValidatorProposerDuties, strconv.FormatUint(epoch, 10)))
+	responseBody, status, err := p.getRequest(ctx, url)
 	if err != nil {
 		return ProposerDutiesResponse{}, fmt.Errorf("error getting validator proposer duties: %w", err)
 	}
@@ -300,8 +389,13 @@ func (p *BeaconHttpProvider) Validator_DutiesProposer(ctx context.Context, indic
 }
 
 func (p *BeaconHttpProvider) Validator_DutiesSync_Post(ctx context.Context, indices []string, epoch uint64) (SyncDutiesResponse, error) {
+	// Prep the context
+	ctx, cancel := p.prepareContext(ctx, p.defaultFastTimeout)
+	defer cancel()
+
 	// Perform the post request
-	responseBody, status, err := p.postRequest(ctx, fmt.Sprintf(RequestValidatorSyncDuties, strconv.FormatUint(epoch, 10)), indices)
+	url := p.baseUrl.JoinPath(fmt.Sprintf(RequestValidatorSyncDuties, strconv.FormatUint(epoch, 10)))
+	responseBody, status, err := p.postRequest(ctx, url, indices)
 	if err != nil {
 		return SyncDutiesResponse{}, fmt.Errorf("error getting validator sync duties: %w", err)
 	}
@@ -322,19 +416,9 @@ func (p *BeaconHttpProvider) Validator_DutiesSync_Post(ctx context.Context, indi
 // ==========================
 
 // Make a GET request to the beacon node and read the body of the response
-func (p *BeaconHttpProvider) getFastRequest(ctx context.Context, requestPath string) ([]byte, int, error) {
-	return getRequestImpl(ctx, fastGetMethod, requestPath, p.providerAddress, p.fastClient)
-}
-
-// Make a GET request to the beacon node and read the body of the response
-func (p *BeaconHttpProvider) getSlowRequest(ctx context.Context, requestPath string) ([]byte, int, error) {
-	return getRequestImpl(ctx, slowGetMethod, requestPath, p.providerAddress, p.slowClient)
-}
-
-// Make a GET request to the beacon node and read the body of the response
-func getRequestImpl(ctx context.Context, methodName string, requestPath string, providerAddress string, client http.Client) ([]byte, int, error) {
+func (p *BeaconHttpProvider) getRequest(ctx context.Context, url *url.URL) ([]byte, int, error) {
 	// Send request
-	reader, status, err := getRequestReader(ctx, methodName, requestPath, providerAddress, client)
+	reader, status, err := p.getRequestReader(ctx, url)
 	if err != nil {
 		return []byte{}, 0, err
 	}
@@ -353,10 +437,9 @@ func getRequestImpl(ctx context.Context, methodName string, requestPath string, 
 }
 
 // Make a POST request to the beacon node
-func (p *BeaconHttpProvider) postRequest(ctx context.Context, requestPath string, requestBody any) ([]byte, int, error) {
+func (p *BeaconHttpProvider) postRequest(ctx context.Context, url *url.URL, requestBody any) ([]byte, int, error) {
 	// Log the request and add tracing if enabled
-	path := fmt.Sprintf(RequestUrlFormat, p.providerAddress, requestPath)
-	ctx = logRequest(ctx, postMethod, path)
+	ctx = p.logRequest(ctx, http.MethodPost, url)
 
 	// Get request body
 	requestBodyBytes, err := json.Marshal(requestBody)
@@ -366,16 +449,18 @@ func (p *BeaconHttpProvider) postRequest(ctx context.Context, requestPath string
 	requestBodyReader := bytes.NewReader(requestBodyBytes)
 
 	// Create the request
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, path, requestBodyReader)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, url.String(), requestBodyReader)
 	if err != nil {
-		return nil, 0, fmt.Errorf("error creating POST request to [%s]: %w", path, err)
+		return nil, 0, fmt.Errorf("error creating POST request to [%s]: %w", url, err)
 	}
 	request.Header.Set("Content-Type", RequestContentType)
 
 	// Submit the request
-	response, err := p.fastClient.Do(request)
+	response, err := p.httpClient.Do(request)
 	if err != nil {
-		return []byte{}, 0, fmt.Errorf("error running POST request to [%s]: %w", path, err)
+		// Remove the query for readability
+		trimmedPath := url.JoinPath(url.Host, url.Path)
+		return []byte{}, 0, fmt.Errorf("error running POST request to [%s]: %w", trimmedPath, err)
 	}
 	defer func() {
 		_ = response.Body.Close()
@@ -391,36 +476,48 @@ func (p *BeaconHttpProvider) postRequest(ctx context.Context, requestPath string
 	return body, response.StatusCode, nil
 }
 
-// Get an eth2 epoch number by time
-func epochAt(config beacon.Eth2Config, time uint64) uint64 {
-	return config.GenesisEpoch + (time-config.GenesisTime)/config.SecondsPerEpoch
-}
-
 // Make a GET request but do not read its body yet (allows buffered decoding)
-func getRequestReader(ctx context.Context, methodName string, requestPath string, providerAddress string, client http.Client) (io.ReadCloser, int, error) {
+func (p *BeaconHttpProvider) getRequestReader(ctx context.Context, url *url.URL) (io.ReadCloser, int, error) {
 	// Log the request and add tracing if enabled
-	path := fmt.Sprintf(RequestUrlFormat, providerAddress, requestPath)
-	trimmedPath, _, _ := strings.Cut(path, "?")
-	ctx = logRequest(ctx, methodName, trimmedPath)
+	ctx = p.logRequest(ctx, http.MethodGet, url)
 
 	// Make the request
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, path, nil)
+	path := url.String()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url.String(), nil)
 	if err != nil {
 		return nil, 0, fmt.Errorf("error creating GET request to [%s]: %w", path, err)
 	}
 	req.Header.Set("Content-Type", RequestContentType)
 
 	// Submit the request
-	response, err := client.Do(req)
+	response, err := p.httpClient.Do(req)
 	if err != nil {
 		// Remove the query for readability
+		trimmedPath := url.JoinPath(url.Host, url.Path)
 		return nil, 0, fmt.Errorf("error running GET request to [%s]: %w", trimmedPath, err)
 	}
 	return response.Body, response.StatusCode, nil
 }
 
-// Log a request and add HTTP tracing to the context if the logger has it enabled
-func logRequest(ctx context.Context, methodName string, path string) context.Context {
+// Adds a timeout to the context if one didn't already exist
+func (p *BeaconHttpProvider) prepareContext(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
+	// Make a new context if it wasn't provided
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	// Return if there was already a deadline
+	_, hasDeadline := ctx.Deadline()
+	if hasDeadline {
+		return ctx, func() {}
+	}
+
+	// Add a default timeout if there isn't one
+	return context.WithTimeout(ctx, defaultTimeout)
+}
+
+// Log a request and prepare the context by adding HTTP tracing if the logger has it enabled
+func (p *BeaconHttpProvider) logRequest(ctx context.Context, methodName string, url *url.URL) context.Context {
 	logger, _ := log.FromContext(ctx)
 	if logger == nil {
 		return ctx
@@ -428,7 +525,8 @@ func logRequest(ctx context.Context, methodName string, path string) context.Con
 
 	logger.Debug("Calling BN request",
 		slog.String(log.MethodKey, methodName),
-		slog.String(log.PathKey, path),
+		slog.String("host", url.Host),
+		slog.String("path", url.Path),
 	)
 	tracer := logger.GetHttpTracer()
 	if tracer != nil {
