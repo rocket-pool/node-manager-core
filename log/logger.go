@@ -14,9 +14,13 @@ import (
 // Logger is a simple wrapper for a slog Logger that writes to a file on disk.
 type Logger struct {
 	*slog.Logger
+
+	// The HTTP client tracer for this logger if HTTP tracing was enabled
+	HttpTracer *httptrace.ClientTrace
+
+	// Internal fields
 	logFile *lumberjack.Logger
 	path    string
-	tracer  *httptrace.ClientTrace
 }
 
 // Creates a new logger that writes out to a log file on disk.
@@ -60,7 +64,7 @@ func NewLogger(logFilePath string, options LoggerOptions) (*Logger, error) {
 	}
 
 	if options.EnableHttpTracing {
-		logger.tracer = logger.createHttpClientTracer()
+		logger.HttpTracer = logger.createHttpClientTracer()
 	}
 	return logger, nil
 }
@@ -76,11 +80,6 @@ func NewDefaultLogger() *Logger {
 // Get the path of the file this logger is writing to
 func (l *Logger) GetFilePath() string {
 	return l.path
-}
-
-// Get the HTTP client tracer for this logger if HTTP tracing was enabled
-func (l *Logger) GetHttpTracer() *httptrace.ClientTrace {
-	return l.tracer
 }
 
 // Rotate the log file, migrating the current file to an old backup and starting a new one
