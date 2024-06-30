@@ -291,9 +291,14 @@ func (c *StandardRpcClient) logRequest(ctx context.Context, methodName string) c
 	}
 
 	// Log the request
-	logger.Debug("Running EC request",
+	args := []any{
 		slog.String(log.MethodKey, methodName),
-	)
+	}
+	deadline, hasDeadline := ctx.Deadline()
+	if hasDeadline {
+		args = append(args, slog.Time("deadline", deadline.UTC()))
+	}
+	logger.Debug("Running EC request", args...)
 	tracer := logger.GetHttpTracer()
 	if tracer != nil {
 		// Enable HTTP tracing if requested

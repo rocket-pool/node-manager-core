@@ -524,11 +524,16 @@ func (p *BeaconHttpProvider) logRequest(ctx context.Context, methodName string, 
 	}
 
 	// Log the request
-	logger.Debug("Running BN request",
+	args := []any{
 		slog.String(log.MethodKey, methodName),
 		slog.String("host", url.Host),
 		slog.String("path", url.Path),
-	)
+	}
+	deadline, hasDeadline := ctx.Deadline()
+	if hasDeadline {
+		args = append(args, slog.Time("deadline", deadline.UTC()))
+	}
+	logger.Debug("Running BN request", args...)
 	tracer := logger.GetHttpTracer()
 	if tracer != nil {
 		// Enable HTTP tracing if requested
