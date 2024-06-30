@@ -6,8 +6,8 @@ import (
 
 const (
 	// Tags
-	lighthouseBnTagProd string = "sigp/lighthouse:v5.2.0"
-	lighthouseBnTagTest string = "sigp/lighthouse:v5.2.0"
+	lighthouseBnTagProd string = "sigp/lighthouse:v5.2.1"
+	lighthouseBnTagTest string = "sigp/lighthouse:v5.2.1"
 )
 
 // Configuration for the Lighthouse BN
