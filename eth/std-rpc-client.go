@@ -15,85 +15,132 @@ import (
 	"github.com/rocket-pool/node-manager-core/log"
 )
 
+const (
+	// Default timeout for fast requests
+	DefaultFastTimeout = 5 * time.Second
+
+	// Default timeout for slow requests
+	DefaultSlowTimeout = 30 * time.Second
+)
+
+// Options for creating a new StandardRpcClient
+type StandardRpcClientOptions struct {
+	// Timeout to use for requests that should return quickly
+	FastTimeout time.Duration
+
+	// Timeout to use for requests that are expected to take longer to process
+	SlowTimeout time.Duration
+}
+
 // Standard RPC-based Execution Client binding with logging support, using Geth as the backing client implementation.
 type StandardRpcClient struct {
-	client      *ethclient.Client
-	fastTimeout time.Duration
-	slowTimeout time.Duration
+	client             *ethclient.Client
+	defaultFastTimeout time.Duration
+	defaultSlowTimeout time.Duration
 }
 
 // Creates a new StandardRpcClient instance
-func NewStandardRpcClient(address string, fastTimeout time.Duration, slowTimeout time.Duration) (*StandardRpcClient, error) {
+func NewStandardRpcClient(address string, opts *StandardRpcClientOptions) (*StandardRpcClient, error) {
 	client, err := ethclient.Dial(address)
 	if err != nil {
 		return nil, fmt.Errorf("error creating EC binding for [%s]: %w", address, err)
 	}
-	return &StandardRpcClient{
-		client:      client,
-		fastTimeout: fastTimeout,
-		slowTimeout: slowTimeout,
-	}, nil
+	wrapper := &StandardRpcClient{
+		client: client,
+	}
+	if opts != nil {
+		wrapper.defaultFastTimeout = opts.FastTimeout
+		wrapper.defaultSlowTimeout = opts.SlowTimeout
+	} else {
+		wrapper.defaultFastTimeout = DefaultFastTimeout
+		wrapper.defaultSlowTimeout = DefaultSlowTimeout
+	}
+	return wrapper, nil
 }
 
 // CodeAt returns the code of the given account. This is needed to differentiate
 // between contract internal errors and the local chain being out of sync.
-func (m *StandardRpcClient) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "CodeAt")
+func (c *StandardRpcClient) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.CodeAt(ctx, contract, blockNumber)
+
+	ctx = c.logRequest(ctx, "CodeAt")
+	return c.client.CodeAt(ctx, contract, blockNumber)
 }
 
 // CallContract executes an Ethereum contract call with the specified data as the
 // input.
-func (m *StandardRpcClient) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "CallContract")
+func (c *StandardRpcClient) CallContract(ctx context.Context, call ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.CallContract(ctx, call, blockNumber)
+
+	ctx = c.logRequest(ctx, "CallContract")
+	return c.client.CallContract(ctx, call, blockNumber)
 }
 
 // HeaderByHash returns the block header with the given hash.
-func (m *StandardRpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "HeaderByHash")
+func (c *StandardRpcClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.HeaderByHash(ctx, hash)
+
+	ctx = c.logRequest(ctx, "HeaderByHash")
+	return c.client.HeaderByHash(ctx, hash)
 }
 
 // HeaderByNumber returns a block header from the current canonical chain. If number is
 // nil, the latest known header is returned.
-func (m *StandardRpcClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "HeaderByNumber")
+func (c *StandardRpcClient) HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.HeaderByNumber(ctx, number)
+
+	ctx = c.logRequest(ctx, "HeaderByNumber")
+	return c.client.HeaderByNumber(ctx, number)
 }
 
 // PendingCodeAt returns the code of the given account in the pending state.
-func (m *StandardRpcClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "PendingCodeAt")
+func (c *StandardRpcClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.PendingCodeAt(ctx, account)
+
+	ctx = c.logRequest(ctx, "PendingCodeAt")
+	return c.client.PendingCodeAt(ctx, account)
 }
 
 // PendingNonceAt retrieves the current pending nonce associated with an account.
-func (m *StandardRpcClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "PendingNonceAt")
+func (c *StandardRpcClient) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.PendingNonceAt(ctx, account)
+
+	ctx = c.logRequest(ctx, "PendingNonceAt")
+	return c.client.PendingNonceAt(ctx, account)
 }
 
 // SuggestGasPrice retrieves the currently suggested gas price to allow a timely
 // execution of a transaction.
-func (m *StandardRpcClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "SuggestGasPrice")
+func (c *StandardRpcClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.SuggestGasPrice(ctx)
+
+	ctx = c.logRequest(ctx, "SuggestGasPrice")
+	return c.client.SuggestGasPrice(ctx)
 }
 
 // SuggestGasTipCap retrieves the currently suggested 1559 priority fee to allow
 // a timely execution of a transaction.
-func (m *StandardRpcClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "SuggestGasTipCap")
+func (c *StandardRpcClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.SuggestGasTipCap(ctx)
+
+	ctx = c.logRequest(ctx, "SuggestGasTipCap")
+	return c.client.SuggestGasTipCap(ctx)
 }
 
 // EstimateGas tries to estimate the gas needed to execute a specific
@@ -101,103 +148,156 @@ func (m *StandardRpcClient) SuggestGasTipCap(ctx context.Context) (*big.Int, err
 // There is no guarantee that this is the true gas limit requirement as other
 // transactions may be added or removed by miners, but it should provide a basis
 // for setting a reasonable default.
-func (m *StandardRpcClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "EstimateGas")
+func (c *StandardRpcClient) EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.EstimateGas(ctx, call)
+
+	ctx = c.logRequest(ctx, "EstimateGas")
+	return c.client.EstimateGas(ctx, call)
 }
 
 // SendTransaction injects the transaction into the pending pool for execution.
-func (m *StandardRpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "SendTransaction")
+func (c *StandardRpcClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.SendTransaction(ctx, tx)
+
+	ctx = c.logRequest(ctx, "SendTransaction")
+	return c.client.SendTransaction(ctx, tx)
 }
 
 // FilterLogs executes a log filter operation, blocking during execution and
 // returning all the results in one batch.
-func (m *StandardRpcClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.slowTimeout, "FilterLogs")
+func (c *StandardRpcClient) FilterLogs(ctx context.Context, query ethereum.FilterQuery) ([]types.Log, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultSlowTimeout)
 	defer cancel()
-	return m.client.FilterLogs(ctx, query)
+
+	ctx = c.logRequest(ctx, "FilterLogs")
+	return c.client.FilterLogs(ctx, query)
 }
 
 // SubscribeFilterLogs creates a background log filtering operation, returning
 // a subscription immediately, which can be used to stream the found events.
-func (m *StandardRpcClient) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "SubscribeFilterLogs")
+func (c *StandardRpcClient) SubscribeFilterLogs(ctx context.Context, query ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.SubscribeFilterLogs(ctx, query, ch)
+
+	ctx = c.logRequest(ctx, "SubscribeFilterLogs")
+	return c.client.SubscribeFilterLogs(ctx, query, ch)
 }
 
 // TransactionReceipt returns the receipt of a transaction by transaction hash.
 // Note that the receipt is not available for pending transactions.
-func (m *StandardRpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "TransactionReceipt")
+func (c *StandardRpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.TransactionReceipt(ctx, txHash)
+
+	ctx = c.logRequest(ctx, "TransactionReceipt")
+	return c.client.TransactionReceipt(ctx, txHash)
 }
 
 // BlockNumber returns the most recent block number
-func (m *StandardRpcClient) BlockNumber(ctx context.Context) (uint64, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "BlockNumber")
+func (c *StandardRpcClient) BlockNumber(ctx context.Context) (uint64, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.BlockNumber(ctx)
+
+	ctx = c.logRequest(ctx, "BlockNumber")
+	return c.client.BlockNumber(ctx)
 }
 
 // BalanceAt returns the wei balance of the given account.
 // The block number can be nil, in which case the balance is taken from the latest known block.
-func (m *StandardRpcClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "BalanceAt")
+func (c *StandardRpcClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.BalanceAt(ctx, account, blockNumber)
+
+	ctx = c.logRequest(ctx, "BalanceAt")
+	return c.client.BalanceAt(ctx, account, blockNumber)
 }
 
 // TransactionByHash returns the transaction with the given hash.
-func (m *StandardRpcClient) TransactionByHash(ctx context.Context, hash common.Hash) (*types.Transaction, bool, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "TransactionByHash")
+func (c *StandardRpcClient) TransactionByHash(ctx context.Context, hash common.Hash) (*types.Transaction, bool, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.TransactionByHash(ctx, hash)
+
+	ctx = c.logRequest(ctx, "TransactionByHash")
+	return c.client.TransactionByHash(ctx, hash)
 }
 
 // NonceAt returns the account nonce of the given account.
 // The block number can be nil, in which case the nonce is taken from the latest known block.
-func (m *StandardRpcClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "NonceAt")
+func (c *StandardRpcClient) NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.NonceAt(ctx, account, blockNumber)
+
+	ctx = c.logRequest(ctx, "NonceAt")
+	return c.client.NonceAt(ctx, account, blockNumber)
 }
 
 // SyncProgress retrieves the current progress of the sync algorithm. If there's
 // no sync currently running, it returns nil.
-func (m *StandardRpcClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "SyncProgress")
+func (c *StandardRpcClient) SyncProgress(ctx context.Context) (*ethereum.SyncProgress, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.SyncProgress(ctx)
+
+	ctx = c.logRequest(ctx, "SyncProgress")
+	return c.client.SyncProgress(ctx)
 }
 
-func (m *StandardRpcClient) ChainID(ctx context.Context) (*big.Int, error) {
-	ctx, cancel := logRequestAndCreateContext(ctx, m.fastTimeout, "ChainID")
+func (c *StandardRpcClient) ChainID(ctx context.Context) (*big.Int, error) {
+	// Prep the context
+	ctx, cancel := c.prepareContext(ctx, c.defaultFastTimeout)
 	defer cancel()
-	return m.client.ChainID(ctx)
+
+	ctx = c.logRequest(ctx, "ChainID")
+	return c.client.ChainID(ctx)
 }
 
 /// ========================
 /// == Internal Functions ==
 /// ========================
 
-// Logs the request and returns a context with the provided timeout and HTTP tracing enabled if requested
-func logRequestAndCreateContext(ctx context.Context, timeout time.Duration, methodName string) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	logger, _ := log.FromContext(ctx)
-	if logger != nil {
-		logger.Debug("Running EC request",
-			slog.String(log.MethodKey, methodName),
-		)
-		tracer := logger.GetHttpTracer()
-		if tracer != nil {
-			ctx = httptrace.WithClientTrace(ctx, tracer)
-		}
+// Adds a timeout to the context if one didn't already exist
+func (c *StandardRpcClient) prepareContext(ctx context.Context, defaultTimeout time.Duration) (context.Context, context.CancelFunc) {
+	// Make a new context if it wasn't provided
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	return ctx, cancel
+
+	// Return if there was already a deadline
+	_, hasDeadline := ctx.Deadline()
+	if hasDeadline {
+		return ctx, func() {}
+	}
+
+	// Add a default timeout if there isn't one
+	return context.WithTimeout(ctx, defaultTimeout)
+}
+
+// Logs the request and returns a context with the provided timeout and HTTP tracing enabled if requested
+func (c *StandardRpcClient) logRequest(ctx context.Context, methodName string) context.Context {
+	logger, _ := log.FromContext(ctx)
+	if logger == nil {
+		return ctx
+	}
+
+	// Log the request
+	logger.Debug("Running EC request",
+		slog.String(log.MethodKey, methodName),
+	)
+	tracer := logger.GetHttpTracer()
+	if tracer != nil {
+		// Enable HTTP tracing if requested
+		ctx = httptrace.WithClientTrace(ctx, tracer)
+	}
+	return ctx
 }

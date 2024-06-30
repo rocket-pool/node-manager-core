@@ -523,7 +523,8 @@ func (p *BeaconHttpProvider) logRequest(ctx context.Context, methodName string, 
 		return ctx
 	}
 
-	logger.Debug("Calling BN request",
+	// Log the request
+	logger.Debug("Running BN request",
 		slog.String(log.MethodKey, methodName),
 		slog.String("host", url.Host),
 		slog.String("path", url.Path),
@@ -533,7 +534,6 @@ func (p *BeaconHttpProvider) logRequest(ctx context.Context, methodName string, 
 		// Enable HTTP tracing if requested
 		ctx = httptrace.WithClientTrace(ctx, tracer)
 	}
-
 	return ctx
 }
 

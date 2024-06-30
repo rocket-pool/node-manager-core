@@ -47,13 +47,17 @@ func NewServiceProvider(cfg config.IConfig) (*ServiceProvider, error) {
 	var ecManager *ExecutionClientManager
 	primaryEcUrl, fallbackEcUrl := cfg.GetExecutionClientUrls()
 	timeouts := cfg.GetExecutionClientTimeouts()
-	primaryEc, err := eth.NewStandardRpcClient(primaryEcUrl, timeouts.FastTimeout, timeouts.SlowTimeout)
+	ecOpts := &eth.StandardRpcClientOptions{
+		FastTimeout: timeouts.FastTimeout,
+		SlowTimeout: timeouts.SlowTimeout,
+	}
+	primaryEc, err := eth.NewStandardRpcClient(primaryEcUrl, ecOpts)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to primary EC at [%s]: %w", primaryEcUrl, err)
 	}
 	if fallbackEcUrl != "" {
 		// Get the fallback EC url, if applicable
-		fallbackEc, err := eth.NewStandardRpcClient(fallbackEcUrl, timeouts.FastTimeout, timeouts.SlowTimeout)
+		fallbackEc, err := eth.NewStandardRpcClient(fallbackEcUrl, ecOpts)
 		if err != nil {
 			return nil, fmt.Errorf("error connecting to fallback EC at [%s]: %w", fallbackEcUrl, err)
 		}
@@ -66,16 +70,16 @@ func NewServiceProvider(cfg config.IConfig) (*ServiceProvider, error) {
 	var bcManager *BeaconClientManager
 	primaryBnUrl, fallbackBnUrl := cfg.GetBeaconNodeUrls()
 	timeouts = cfg.GetBeaconNodeTimeouts()
-	opts := &client.StandardHttpClientOpts{
+	bnOpts := &client.StandardHttpClientOpts{
 		FastTimeout: timeouts.FastTimeout,
 		SlowTimeout: timeouts.SlowTimeout,
 	}
-	primaryBc, err := client.NewStandardHttpClient(primaryBnUrl, opts)
+	primaryBc, err := client.NewStandardHttpClient(primaryBnUrl, bnOpts)
 	if err != nil {
 		return nil, fmt.Errorf("error connecting to primary BC at [%s]: %w", primaryBnUrl, err)
 	}
 	if fallbackBnUrl != "" {
-		fallbackBc, err := client.NewStandardHttpClient(fallbackBnUrl, opts)
+		fallbackBc, err := client.NewStandardHttpClient(fallbackBnUrl, bnOpts)
 		if err != nil {
 			return nil, fmt.Errorf("error connecting to fallback BC at [%s]: %w", fallbackBnUrl, err)
 		}
