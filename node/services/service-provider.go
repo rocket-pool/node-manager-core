@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"io"
 	"path/filepath"
 	"runtime"
 	"time"
@@ -20,8 +21,85 @@ const (
 	DockerApiVersion string = "1.40"
 )
 
+// ==================
+// === Interfaces ===
+// ==================
+
+// Provides access to Ethereum client(s) via a fallback-enabled manager, along with utilities for querying the chain and executing transactions
+type IEthClientProvider interface {
+	// Gets the Execution Client manager
+	GetEthClient() *ExecutionClientManager
+
+	// Gets the Execution layer query manager
+	GetQueryManager() *eth.QueryManager
+
+	// Gets the Execution layer transaction manager
+	GetTransactionManager() *eth.TransactionManager
+}
+
+// Provides access to Beacon client(s) via a fallback-enabled manager
+type IBeaconClientProvider interface {
+	// Gets the Beacon Client manager
+	GetBeaconClient() *BeaconClientManager
+}
+
+// Provides access to the node's configuration and list of resources for the current network
+type IConfigProvider interface {
+	// Gets the node's configuration
+	GetConfig() config.IConfig
+
+	// Gets the network resources for the current network
+	GetNetworkResources() *config.NetworkResources
+}
+
+// Provides access to a Docker client
+type IDockerProvider interface {
+	// Gets the Docker client
+	GetDocker() dclient.APIClient
+}
+
+// Provides access to the node's loggers
+type ILoggerProvider interface {
+	// Gets the logger to use for the API server
+	GetApiLogger() *log.Logger
+
+	// Gets the logger to use for the automated tasks loop
+	GetTasksLogger() *log.Logger
+}
+
+// Provides access to the node's wallet
+type IWalletProvider interface {
+	// Gets the node's wallet
+	GetWallet() *wallet.Wallet
+}
+
+// Provides access to a context for cancelling long operations upon daemon shutdown
+type IContextProvider interface {
+	// Gets a base context for the daemon that all operations can derive from
+	GetBaseContext() context.Context
+
+	// Cancels the base context when the daemon is shutting down
+	CancelContextOnShutdown()
+}
+
+// A container for all of the various services used by the node daemon
+type IServiceProvider interface {
+	IEthClientProvider
+	IBeaconClientProvider
+	IConfigProvider
+	IDockerProvider
+	ILoggerProvider
+	IWalletProvider
+	IContextProvider
+	io.Closer
+}
+
+// =======================
+// === ServiceProvider ===
+// =======================
+
 // A container for all of the various services used by the node service
-type ServiceProvider struct {
+type serviceProvider struct {
 	// Services
 	cfg        config.IConfig
 	resources  *config.NetworkResources
@@ -42,7 +120,7 @@ type ServiceProvider struct {
 }
 
 // Creates a new ServiceProvider instance based on the given config
-func NewServiceProvider(cfg config.IConfig, clientTimeout time.Duration) (*ServiceProvider, error) {
+func NewServiceProvider(cfg config.IConfig, clientTimeout time.Duration) (IServiceProvider, error) {
 	resources := cfg.GetNetworkResources()
 
 	// EC Manager
@@ -84,7 +162,7 @@ func NewServiceProvider(cfg config.IConfig, clientTimeout time.Duration) (*Servi
 }
 
 // Creates a new ServiceProvider instance with custom services instead of creating them from the config
-func NewServiceProviderWithCustomServices(cfg config.IConfig, resources *config.NetworkResources, ecManager *ExecutionClientManager, bcManager *BeaconClientManager, dockerClient dclient.APIClient) (*ServiceProvider, error) {
+func NewServiceProviderWithCustomServices(cfg config.IConfig, resources *config.NetworkResources, ecManager *ExecutionClientManager, bcManager *BeaconClientManager, dockerClient dclient.APIClient) (IServiceProvider, error) {
 	// Make the API logger
 	loggerOpts := cfg.GetLoggerOptions()
 	apiLogger, err := log.NewLogger(cfg.GetApiLogFilePath(), loggerOpts)
@@ -128,7 +206,7 @@ func NewServiceProviderWithCustomServices(cfg config.IConfig, resources *config.
 	tasksLogger.Info("Starting Tasks logger.")
 
 	// Create the provider
-	provider := &ServiceProvider{
+	provider := &serviceProvider{
 		cfg:         cfg,
 		resources:   resources,
 		nodeWallet:  nodeWallet,
@@ -146,59 +224,60 @@ func NewServiceProviderWithCustomServices(cfg config.IConfig, resources *config.
 }
 
 // Closes the service provider and its underlying services
-func (p *ServiceProvider) Close() {
+func (p *serviceProvider) Close() error {
 	p.apiLogger.Close()
 	p.tasksLogger.Close()
+	return nil
 }
 
 // ===============
 // === Getters ===
 // ===============
 
-func (p *ServiceProvider) GetConfig() config.IConfig {
+func (p *serviceProvider) GetConfig() config.IConfig {
 	return p.cfg
 }
 
-func (p *ServiceProvider) GetNetworkResources() *config.NetworkResources {
+func (p *serviceProvider) GetNetworkResources() *config.NetworkResources {
 	return p.resources
 }
 
-func (p *ServiceProvider) GetWallet() *wallet.Wallet {
+func (p *serviceProvider) GetWallet() *wallet.Wallet {
 	return p.nodeWallet
 }
 
-func (p *ServiceProvider) GetEthClient() *ExecutionClientManager {
+func (p *serviceProvider) GetEthClient() *ExecutionClientManager {
 	return p.ecManager
 }
 
-func (p *ServiceProvider) GetBeaconClient() *BeaconClientManager {
+func (p *serviceProvider) GetBeaconClient() *BeaconClientManager {
 	return p.bcManager
 }
 
-func (p *ServiceProvider) GetDocker() dclient.APIClient {
+func (p *serviceProvider) GetDocker() dclient.APIClient {
 	return p.docker
 }
 
-func (p *ServiceProvider) GetTransactionManager() *eth.TransactionManager {
+func (p *serviceProvider) GetTransactionManager() *eth.TransactionManager {
 	return p.txMgr
 }
 
-func (p *ServiceProvider) GetQueryManager() *eth.QueryManager {
+func (p *serviceProvider) GetQueryManager() *eth.QueryManager {
 	return p.queryMgr
 }
 
-func (p *ServiceProvider) GetApiLogger() *log.Logger {
+func (p *serviceProvider) GetApiLogger() *log.Logger {
 	return p.apiLogger
 }
 
-func (p *ServiceProvider) GetTasksLogger() *log.Logger {
+func (p *serviceProvider) GetTasksLogger() *log.Logger {
 	return p.tasksLogger
 }
 
-func (p *ServiceProvider) GetBaseContext() context.Context {
+func (p *serviceProvider) GetBaseContext() context.Context {
 	return p.ctx
 }
 
-func (p *ServiceProvider) CancelContextOnShutdown() {
+func (p *serviceProvider) CancelContextOnShutdown() {
 	p.cancel()
 }
