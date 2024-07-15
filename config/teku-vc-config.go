@@ -6,8 +6,7 @@ import (
 
 const (
 	// Tags
-	tekuVcTagTest string = tekuBnTagTest
-	tekuVcTagProd string = tekuBnTagProd
+	tekuVcTag string = tekuBnTag
 )
 
 // Configuration for Teku
@@ -49,8 +48,7 @@ func NewTekuVcConfig() *TekuVcConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: tekuVcTagProd,
-				Network_Holesky: tekuVcTagTest,
+				Network_All: tekuVcTag,
 			},
 		},
 

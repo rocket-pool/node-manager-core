@@ -7,8 +7,7 @@ import (
 
 const (
 	// Tags
-	tekuBnTagTest string = "consensys/teku:24.6.1"
-	tekuBnTagProd string = "consensys/teku:24.6.1"
+	tekuBnTag string = "consensys/teku:24.6.1"
 )
 
 // Configuration for Teku
@@ -84,8 +83,7 @@ func NewTekuBnConfig() *TekuBnConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: tekuBnTagProd,
-				Network_Holesky: tekuBnTagTest,
+				Network_All: tekuBnTag,
 			},
 		},
 

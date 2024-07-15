@@ -2,10 +2,18 @@ package config
 
 import "fmt"
 
-// The network that this installation is configured to run on
+const (
+	// The standard name of the Ethereum mainnet network, used for EL / CL flags
+	EthNetwork_Mainnet string = "mainnet"
+
+	// The standard name of the Ethereum holesky network, used for EL / CL flags
+	EthNetwork_Holesky string = "holesky"
+)
+
+// Deprecated: Switch to using dynamically-loaded network settings instead
 type Network string
 
-// Enum to describe the various network values
+// Enum to describe well-known network keys for convenience, which may or may not be used by the application.
 const (
 	// Unknown
 	Network_Unknown Network = ""
@@ -13,11 +21,11 @@ const (
 	// All networks (used for parameter defaults)
 	Network_All Network = "all"
 
-	// The Holesky test network
-	Network_Holesky Network = "holesky"
-
 	// The Ethereum mainnet
-	Network_Mainnet Network = "mainnet"
+	Network_Mainnet Network = Network(EthNetwork_Mainnet)
+
+	// The Holesky test network
+	Network_Holesky Network = Network(EthNetwork_Holesky)
 )
 
 // A Docker container name

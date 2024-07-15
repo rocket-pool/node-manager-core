@@ -5,8 +5,7 @@ import (
 )
 
 const (
-	lodestarVcTagTest string = lodestarBnTagTest
-	lodestarVcTagProd string = lodestarBnTagProd
+	lodestarVcTag string = lodestarBnTag
 )
 
 // Configuration for the Lodestar VC
@@ -31,8 +30,7 @@ func NewLodestarVcConfig() *LodestarVcConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: lodestarVcTagProd,
-				Network_Holesky: lodestarVcTagTest,
+				Network_All: lodestarVcTag,
 			},
 		},
 

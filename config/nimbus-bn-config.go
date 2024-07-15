@@ -9,8 +9,7 @@ import (
 
 const (
 	// Tags
-	nimbusBnTagTest string = "statusim/nimbus-eth2:multiarch-v24.6.0"
-	nimbusBnTagProd string = "statusim/nimbus-eth2:multiarch-v24.6.0"
+	nimbusBnTag string = "statusim/nimbus-eth2:multiarch-v24.6.0"
 )
 
 // Nimbus's pruning mode
@@ -92,8 +91,7 @@ func NewNimbusBnConfig() *NimbusBnConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: nimbusBnTagProd,
-				Network_Holesky: nimbusBnTagTest,
+				Network_All: nimbusBnTag,
 			},
 		},
 
