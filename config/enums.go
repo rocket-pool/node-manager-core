@@ -10,7 +10,7 @@ const (
 	EthNetwork_Holesky string = "holesky"
 )
 
-// Deprecated: Switch to using dynamically-loaded network settings instead
+// Type for network keys, used in NetworkSettings to uniquely define the network
 type Network string
 
 // Enum to describe well-known network keys for convenience, which may or may not be used by the application.
@@ -21,10 +21,10 @@ const (
 	// All networks (used for parameter defaults)
 	Network_All Network = "all"
 
-	// The Ethereum mainnet
+	// The standard key for an Ethereum mainnet config
 	Network_Mainnet Network = Network(EthNetwork_Mainnet)
 
-	// The Holesky test network
+	// The standard key for the Holesky test network
 	Network_Holesky Network = Network(EthNetwork_Holesky)
 )
 
