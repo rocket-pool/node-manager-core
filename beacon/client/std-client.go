@@ -373,7 +373,7 @@ func (c *StandardClient) GetDomainData(ctx context.Context, domainType []byte, e
 func (c *StandardClient) ExitValidator(ctx context.Context, validatorIndex string, epoch uint64, signature beacon.ValidatorSignature) error {
 	return c.provider.Beacon_VoluntaryExits_Post(ctx, VoluntaryExitRequest{
 		Message: VoluntaryExitMessage{
-			Epoch:          Uinteger(epoch),
+			Epoch:          utils.Uinteger(epoch),
 			ValidatorIndex: validatorIndex,
 		},
 		Signature: signature[:],

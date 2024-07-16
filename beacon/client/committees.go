@@ -5,12 +5,13 @@ import (
 	"sync"
 
 	"github.com/goccy/go-json"
+	"github.com/rocket-pool/node-manager-core/utils"
 )
 
 type Committee struct {
-	Index      Uinteger `json:"index"`
-	Slot       Uinteger `json:"slot"`
-	Validators []string `json:"validators"`
+	Index      utils.Uinteger `json:"index"`
+	Slot       utils.Uinteger `json:"slot"`
+	Validators []string       `json:"validators"`
 }
 
 // Custom deserialization logic for Committee allows us to pool the validator
