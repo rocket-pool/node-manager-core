@@ -6,7 +6,7 @@ import (
 
 const (
 	// Tags
-	exporterTag string = "prom/node-exporter:v1.8.1"
+	exporterTag string = "prom/node-exporter:v1.8.2"
 )
 
 // Configuration for Exporter
