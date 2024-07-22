@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	lodestarBnTagTest string = "chainsafe/lodestar:v1.20.0"
-	lodestarBnTagProd string = "chainsafe/lodestar:v1.20.0"
+	lodestarBnTagTest string = "chainsafe/lodestar:v1.20.2"
+	lodestarBnTagProd string = "chainsafe/lodestar:v1.20.2"
 )
 
 // Configuration for the Lodestar BN
