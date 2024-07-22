@@ -135,3 +135,42 @@ func ApplyDefaults(cfg IConfigSection, network Network) {
 		ApplyDefaults(subconfig, network)
 	}
 }
+
+// Assign the default values of a config section for the provided network
+func SetDefaultsForNetworks(cfg IConfigSection, defaults map[string]any, network Network) error {
+	// Handle the parameters
+	params := cfg.GetParameters()
+	for _, param := range params {
+		id := param.GetCommon().ID
+		val, exists := defaults[id]
+		if !exists {
+			continue
+		}
+		valString, isString := val.(string)
+		if !isString {
+			return fmt.Errorf("parameter [%s] is not a string but has a parameter ID name", id)
+		}
+		err := param.SetDefaultValueForNetwork(valString, network)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Handle the subconfigs
+	subconfigs := cfg.GetSubconfigs()
+	for name, subconfig := range subconfigs {
+		subParams, exists := defaults[name]
+		if exists {
+			submap, isMap := subParams.(map[string]any)
+			if !isMap {
+				return fmt.Errorf("subsection [%s] is not a map, it is %s", name, reflect.TypeOf(subParams))
+			}
+			err := SetDefaultsForNetworks(subconfig, submap, network)
+			if err != nil {
+				return fmt.Errorf("error deserializing subsection [%s]: %w", name, err)
+			}
+		}
+	}
+
+	return nil
+}

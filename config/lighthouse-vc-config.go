@@ -6,8 +6,7 @@ import (
 
 const (
 	// Tags
-	lighthouseVcTagProd string = lighthouseBnTagProd
-	lighthouseVcTagTest string = lighthouseBnTagTest
+	lighthouseVcTag string = lighthouseBnTag
 )
 
 // Configuration for the Lighthouse VC
@@ -32,8 +31,7 @@ func NewLighthouseVcConfig() *LighthouseVcConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: lighthouseVcTagProd,
-				Network_Holesky: lighthouseVcTagTest,
+				Network_All: lighthouseVcTag,
 			},
 		},
 

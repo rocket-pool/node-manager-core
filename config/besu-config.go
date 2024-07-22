@@ -7,8 +7,7 @@ import (
 // Constants
 const (
 	// Tags
-	besuTagTest string = "hyperledger/besu:24.7.0"
-	besuTagProd string = "hyperledger/besu:24.7.0"
+	besuTag string = "hyperledger/besu:24.7.0"
 )
 
 // Configuration for Besu
@@ -101,8 +100,7 @@ func NewBesuConfig() *BesuConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: besuTagProd,
-				Network_Holesky: besuTagTest,
+				Network_All: besuTag,
 			},
 		},
 
