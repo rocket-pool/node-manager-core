@@ -43,15 +43,6 @@ type IBeaconClientProvider interface {
 	GetBeaconClient() *BeaconClientManager
 }
 
-// Provides access to the node's configuration and list of resources for the current network
-type IConfigProvider interface {
-	// Gets the node's configuration
-	GetConfig() config.IConfig
-
-	// Gets the network resources for the current network
-	GetNetworkResources() *config.NetworkResources
-}
-
 // Provides access to a Docker client
 type IDockerProvider interface {
 	// Gets the Docker client
@@ -86,7 +77,6 @@ type IContextProvider interface {
 type IServiceProvider interface {
 	IEthClientProvider
 	IBeaconClientProvider
-	IConfigProvider
 	IDockerProvider
 	ILoggerProvider
 	IWalletProvider
@@ -101,8 +91,6 @@ type IServiceProvider interface {
 // A container for all of the various services used by the node service
 type serviceProvider struct {
 	// Services
-	cfg        config.IConfig
-	resources  *config.NetworkResources
 	nodeWallet *wallet.Wallet
 	ecManager  *ExecutionClientManager
 	bcManager  *BeaconClientManager
@@ -120,9 +108,7 @@ type serviceProvider struct {
 }
 
 // Creates a new ServiceProvider instance based on the given config
-func NewServiceProvider(cfg config.IConfig, clientTimeout time.Duration) (IServiceProvider, error) {
-	resources := cfg.GetNetworkResources()
-
+func NewServiceProvider(cfg config.IConfig, resources *config.NetworkResources, clientTimeout time.Duration) (IServiceProvider, error) {
 	// EC Manager
 	var ecManager *ExecutionClientManager
 	primaryEcUrl, fallbackEcUrl := cfg.GetExecutionClientUrls()
@@ -207,8 +193,6 @@ func NewServiceProviderWithCustomServices(cfg config.IConfig, resources *config.
 
 	// Create the provider
 	provider := &serviceProvider{
-		cfg:         cfg,
-		resources:   resources,
 		nodeWallet:  nodeWallet,
 		ecManager:   ecManager,
 		bcManager:   bcManager,
@@ -233,14 +217,6 @@ func (p *serviceProvider) Close() error {
 // ===============
 // === Getters ===
 // ===============
-
-func (p *serviceProvider) GetConfig() config.IConfig {
-	return p.cfg
-}
-
-func (p *serviceProvider) GetNetworkResources() *config.NetworkResources {
-	return p.resources
-}
 
 func (p *serviceProvider) GetWallet() *wallet.Wallet {
 	return p.nodeWallet
