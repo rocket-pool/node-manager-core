@@ -6,8 +6,7 @@ import (
 
 const (
 	// Tags
-	nimbusVcTagTest string = "statusim/nimbus-validator-client:multiarch-v24.6.0"
-	nimbusVcTagProd string = "statusim/nimbus-validator-client:multiarch-v24.6.0"
+	nimbusVcTag string = "statusim/nimbus-validator-client:multiarch-v24.6.0"
 )
 
 // Configuration for Nimbus
@@ -32,8 +31,7 @@ func NewNimbusVcConfig() *NimbusVcConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: nimbusVcTagProd,
-				Network_Holesky: nimbusVcTagTest,
+				Network_All: nimbusVcTag,
 			},
 		},
 

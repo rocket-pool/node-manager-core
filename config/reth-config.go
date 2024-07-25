@@ -9,8 +9,7 @@ import (
 
 // Constants
 const (
-	rethTagProd string = "ghcr.io/paradigmxyz/reth:v1.0.0"
-	rethTagTest string = "ghcr.io/paradigmxyz/reth:v1.0.0"
+	rethTag string = "ghcr.io/paradigmxyz/reth:v1.0.1"
 )
 
 // Configuration for Reth
@@ -82,8 +81,7 @@ func NewRethConfig() *RethConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: rethTagProd,
-				Network_Holesky: rethTagTest,
+				Network_All: rethTag,
 			},
 		},
 

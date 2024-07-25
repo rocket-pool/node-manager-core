@@ -21,9 +21,6 @@ type IConfig interface {
 	// The path to use for the wallet keystore's password file
 	GetPasswordFilePath() string
 
-	// The resources for the selected network
-	GetNetworkResources() *NetworkResources
-
 	// The URLs for the Execution clients to use
 	GetExecutionClientUrls() (string, string)
 

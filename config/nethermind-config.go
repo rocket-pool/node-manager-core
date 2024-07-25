@@ -11,8 +11,7 @@ import (
 // Constants
 const (
 	// Tags
-	nethermindTagProd string = "nethermind/nethermind:1.27.0"
-	nethermindTagTest string = "nethermind/nethermind:1.27.0"
+	nethermindTag string = "nethermind/nethermind:1.27.0"
 )
 
 // Configuration for Nethermind
@@ -114,8 +113,8 @@ func NewNethermindConfig() *NethermindConfig {
 				OverwriteOnUpgrade: false,
 			},
 			Default: map[Network]uint64{
-				Network_Mainnet: uint64(307200),
-				Network_Holesky: uint64(51200),
+				Network_All: uint64(307200),
+				//Network_Holesky: uint64(51200), TODO: Port
 			},
 		},
 
@@ -157,8 +156,7 @@ func NewNethermindConfig() *NethermindConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: nethermindTagProd,
-				Network_Holesky: nethermindTagTest,
+				Network_All: nethermindTag,
 			},
 		},
 

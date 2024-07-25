@@ -6,8 +6,7 @@ import (
 
 const (
 	// Tags
-	prysmBnTagTest string = "rocketpool/prysm:v5.0.4"
-	prysmBnTagProd string = "rocketpool/prysm:v5.0.4"
+	prysmBnTag string = "rocketpool/prysm:v5.0.4"
 )
 
 // Configuration for the Prysm BN
@@ -84,8 +83,7 @@ func NewPrysmBnConfig() *PrysmBnConfig {
 				OverwriteOnUpgrade: true,
 			},
 			Default: map[Network]string{
-				Network_Mainnet: prysmBnTagProd,
-				Network_Holesky: prysmBnTagTest,
+				Network_All: prysmBnTag,
 			},
 		},
 
