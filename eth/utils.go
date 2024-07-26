@@ -31,6 +31,25 @@ func CreateTxSubmissionFromInfo(txInfo *TransactionInfo, err error) (*Transactio
 	}, nil
 }
 
+// Create a batch of sequential transactions, optionally failing if any of the transactions fail simulation.
+// Each creator should return a description of the transaction, the submission that was created, and an optional error if one occurred.
+func BatchCreateTransactionSubmissions(creators []func() (string, *TransactionInfo, error), failOnSimErrors bool) ([]*TransactionSubmission, error) {
+	// Create the TXs
+	txSubmissions := make([]*TransactionSubmission, len(creators))
+	for i, creator := range creators {
+		description, txInfo, err := creator()
+		txSubmission, err := CreateTxSubmissionFromInfo(txInfo, err)
+		if err != nil {
+			return nil, fmt.Errorf("error creating %s TX: %w", description, err)
+		}
+		if failOnSimErrors && txSubmission.TxInfo.SimulationResult.SimulationError != "" {
+			return nil, fmt.Errorf("error simulating %s TX: %s", description, txSubmission.TxInfo.SimulationResult.SimulationError)
+		}
+		txSubmissions[i] = txSubmission
+	}
+	return txSubmissions, nil
+}
+
 // Simple convenience method to add a contract call to a multicaller
 func AddCallToMulticaller(mc *batch.MultiCaller, contract *Contract, output any, method string, args ...any) {
 	mc.AddCall(contract.Address, contract.ABI, output, method, args...)

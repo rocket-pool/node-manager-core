@@ -150,7 +150,7 @@ func (t *TransactionManager) CreateTransactionInfo(contract *Contract, method st
 	return txInfo, nil
 }
 
-// Create a new serializable TransactionInfo from raw data and simuate its execution
+// Create a new serializable TransactionInfo from raw data and simulate its execution
 func (t *TransactionManager) CreateTransactionInfoRaw(to common.Address, data []byte, opts *bind.TransactOpts) *TransactionInfo {
 	// Simulate the TX
 	simResult := t.SimulateTransaction(t.client, to, opts, data)
