@@ -223,7 +223,7 @@ func (p *BeaconHttpProvider) Config_DepositContract(ctx context.Context) (Eth2De
 		return Eth2DepositContractResponse{}, fmt.Errorf("error getting eth2 deposit contract: %w", err)
 	}
 	if status != http.StatusOK {
-		return Eth2DepositContractResponse{}, fmt.Errorf("error gettingeth2 deposit contract: HTTP status %d; response body: '%s'", status, string(responseBody))
+		return Eth2DepositContractResponse{}, fmt.Errorf("error getting eth2 deposit contract: HTTP status %d; response body: '%s'", status, string(responseBody))
 	}
 	var eth2DepositContract Eth2DepositContractResponse
 	if err := json.Unmarshal(responseBody, &eth2DepositContract); err != nil {
