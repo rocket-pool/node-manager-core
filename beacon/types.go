@@ -25,6 +25,7 @@ type Eth2Config struct {
 	SlotsPerEpoch                uint64
 	SecondsPerEpoch              uint64
 	EpochsPerSyncCommitteePeriod uint64
+	ShardCommitteePeriod         uint64
 }
 type Eth2DepositContract struct {
 	ChainID uint64

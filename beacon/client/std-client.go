@@ -34,6 +34,11 @@ func (c *StandardClient) Close(ctx context.Context) error {
 	return nil
 }
 
+// Get the client's underlying Beacon HTTP API provider
+func (c *StandardClient) GetProvider() IBeaconApiProvider {
+	return c.provider
+}
+
 // Get the node's sync status
 func (c *StandardClient) GetSyncStatus(ctx context.Context) (beacon.SyncStatus, error) {
 	// Get sync status
@@ -88,6 +93,7 @@ func (c *StandardClient) GetEth2Config(ctx context.Context) (beacon.Eth2Config, 
 		SlotsPerEpoch:                uint64(eth2Config.Data.SlotsPerEpoch),
 		SecondsPerEpoch:              uint64(eth2Config.Data.SecondsPerSlot * eth2Config.Data.SlotsPerEpoch),
 		EpochsPerSyncCommitteePeriod: uint64(eth2Config.Data.EpochsPerSyncCommitteePeriod),
+		ShardCommitteePeriod:         uint64(eth2Config.Data.ShardCommitteePeriod),
 	}, nil
 }
 
