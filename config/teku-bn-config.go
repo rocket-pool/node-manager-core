@@ -7,7 +7,7 @@ import (
 
 const (
 	// Tags
-	tekuBnTag string = "consensys/teku:24.6.1"
+	tekuBnTag string = "consensys/teku:24.8.0"
 )
 
 // Configuration for Teku

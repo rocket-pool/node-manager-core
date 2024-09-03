@@ -6,7 +6,7 @@ import (
 
 const (
 	// Tags
-	prometheusTag string = "prom/prometheus:v2.53.1"
+	prometheusTag string = "prom/prometheus:v2.54.1"
 )
 
 // Configuration for Prometheus
