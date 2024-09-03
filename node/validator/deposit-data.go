@@ -56,7 +56,7 @@ func GetDepositData(validatorKey *eth2types.BLSPrivateKey, withdrawalCredentials
 	}
 
 	// Make sure everything is correct
-	err = validateDepositInfo(genesisForkVersion, depositAmount, dd.PublicKey, dd.WithdrawalCredentials, depositData.Signature)
+	err = ValidateDepositInfo(genesisForkVersion, depositAmount, dd.PublicKey, dd.WithdrawalCredentials, depositData.Signature)
 	if err != nil {
 		return beacon.ExtendedDepositData{}, fmt.Errorf("deposit data failed signature validation: %w", err)
 	}
@@ -74,7 +74,7 @@ func GetDepositData(validatorKey *eth2types.BLSPrivateKey, withdrawalCredentials
 	}, nil
 }
 
-func validateDepositInfo(genesisForkVersion []byte, depositAmount uint64, pubkey []byte, withdrawalCredentials []byte, signature []byte) error {
+func ValidateDepositInfo(genesisForkVersion []byte, depositAmount uint64, pubkey []byte, withdrawalCredentials []byte, signature []byte) error {
 	// Get the deposit domain based on the eth2 config
 	depositDomain, err := signing.ComputeDomain(eth2types.DomainDeposit, genesisForkVersion, eth2types.ZeroGenesisValidatorsRoot)
 	if err != nil {
