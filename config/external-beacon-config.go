@@ -69,7 +69,7 @@ func NewExternalBeaconConfig() *ExternalBeaconConfig {
 			ParameterCommon: &ParameterCommon{
 				ID:                 ids.HttpUrlID,
 				Name:               "HTTP URL",
-				Description:        "The URL of the HTTP Beacon API endpoint for your external client.\nNOTE: If you are running it on the same machine as this node, addresses like `localhost` and `127.0.0.1` will not work due to Docker limitations. Enter your machine's LAN IP address instead.",
+				Description:        "The URL of the HTTP Beacon API endpoint for your external client.\nNOTE: If you are running it on the same machine as this node, addresses like `localhost` and `127.0.0.1` will not work due to Docker limitations. Enter your machine's LAN IP address instead, for example 'http://192.168.1.100:5052'.",
 				AffectsContainers:  []ContainerID{ContainerID_Daemon, ContainerID_ValidatorClient},
 				CanBeBlank:         false,
 				OverwriteOnUpgrade: false,
@@ -83,7 +83,7 @@ func NewExternalBeaconConfig() *ExternalBeaconConfig {
 			ParameterCommon: &ParameterCommon{
 				ID:                 ids.PrysmRpcUrlID,
 				Name:               "Prysm RPC URL",
-				Description:        "The URL of Prysm's gRPC API endpoint for your external Beacon Node. Prysm's Validator Client will need this in order to connect to it.\nNOTE: If you are running it on the same machine as this node, addresses like `localhost` and `127.0.0.1` will not work due to Docker limitations. Enter your machine's LAN IP address instead.",
+				Description:        "The URL of Prysm's gRPC API endpoint for your external Beacon Node. Prysm's Validator Client will need this in order to connect to it.\nNOTE: If you are running it on the same machine as this node, addresses like `localhost` and `127.0.0.1` will not work due to Docker limitations. Enter your machine's LAN IP address instead, for example 'http://192.168.1.100:5053'.",
 				AffectsContainers:  []ContainerID{ContainerID_ValidatorClient},
 				CanBeBlank:         false,
 				OverwriteOnUpgrade: false,
