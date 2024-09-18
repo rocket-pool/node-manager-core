@@ -1,8 +1,8 @@
 module github.com/rocket-pool/node-manager-core
 
-go 1.21
+go 1.22
 
-toolchain go1.21.7
+toolchain go1.22.7
 
 require (
 	github.com/btcsuite/btcd v0.24.0
