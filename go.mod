@@ -58,7 +58,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.19.1 // indirect
-	github.com/herumi/bls-eth-go-binary v1.33.0 // indirect
+	github.com/herumi/bls-eth-go-binary v1.36.1 // indirect
 	github.com/holiman/uint256 v1.3.1 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
