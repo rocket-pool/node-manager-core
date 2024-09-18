@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -115,7 +116,7 @@ func HandleResponse[DataType any](context IRequesterContext, resp *http.Response
 	// Check if the request failed
 	if resp.StatusCode != http.StatusOK {
 		logger.Debug("API Response", slog.String(log.PathKey, path), slog.String(log.CodeKey, resp.Status), slog.String("err", parsedResponse.Error))
-		return nil, fmt.Errorf(parsedResponse.Error)
+		return nil, errors.New(parsedResponse.Error)
 	}
 
 	// Debug log

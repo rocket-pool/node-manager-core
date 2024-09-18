@@ -2,7 +2,7 @@ package services
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/rocket-pool/node-manager-core/log"
 )
@@ -36,7 +36,7 @@ func runFunction1[ClientType any, ReturnType any](m iClientManagerImpl[ClientTyp
 					return runFunction1[ClientType, ReturnType](m, ctx, function)
 				} else {
 					logger.Warn("Primary "+typeName+" disconnected and no fallback is configured.", log.Err(err))
-					return blank, fmt.Errorf("all " + typeName + "s failed")
+					return blank, errors.New("all " + typeName + "s failed")
 				}
 			}
 			// If it's a different error, just return it
@@ -54,7 +54,7 @@ func runFunction1[ClientType any, ReturnType any](m iClientManagerImpl[ClientTyp
 				// If it's disconnected, log it and try the fallback
 				logger.Warn("Fallback "+typeName+" disconnected", log.Err(err))
 				m.SetFallbackReady(false)
-				return blank, fmt.Errorf("all " + typeName + "s failed")
+				return blank, errors.New("all " + typeName + "s failed")
 			}
 
 			// If it's a different error, just return it
@@ -64,7 +64,7 @@ func runFunction1[ClientType any, ReturnType any](m iClientManagerImpl[ClientTyp
 		return result, nil
 	}
 
-	return blank, fmt.Errorf("no " + typeName + "s were ready")
+	return blank, errors.New("no " + typeName + "s were ready")
 }
 
 // Run a function with 0 outputs and an error
