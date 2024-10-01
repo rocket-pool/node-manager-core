@@ -7,7 +7,7 @@ toolchain go1.22.7
 require (
 	github.com/btcsuite/btcd v0.24.0
 	github.com/btcsuite/btcd/btcutil v1.1.5
-	github.com/docker/docker v26.0.0+incompatible
+	github.com/docker/docker v27.3.1+incompatible
 	github.com/ethereum/go-ethereum v1.14.8
 	github.com/fatih/color v1.16.0
 	github.com/ferranbt/fastssz v0.1.3
