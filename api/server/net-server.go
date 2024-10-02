@@ -14,13 +14,14 @@ import (
 )
 
 type NetworkSocketApiServer struct {
-	logger   *slog.Logger
-	handlers []IHandler
-	ip       string
-	port     uint16
-	socket   net.Listener
-	server   http.Server
-	router   *mux.Router
+	logger    *slog.Logger
+	handlers  []IHandler
+	ip        string
+	port      uint16
+	socket    net.Listener
+	server    http.Server
+	router    *mux.Router
+	apiRouter *mux.Router
 }
 
 func NewNetworkSocketApiServer(logger *slog.Logger, ip string, port uint16, handlers []IHandler, baseRoute string, apiVersion string) (*NetworkSocketApiServer, error) {
@@ -44,6 +45,7 @@ func NewNetworkSocketApiServer(logger *slog.Logger, ip string, port uint16, hand
 	for _, handler := range server.handlers {
 		handler.RegisterRoutes(nmcRouter)
 	}
+	server.apiRouter = nmcRouter
 
 	return server, nil
 }
@@ -87,4 +89,9 @@ func (s *NetworkSocketApiServer) Stop() error {
 // Get the port the server is running on - useful if the port was automatically assigned
 func (s *NetworkSocketApiServer) GetPort() uint16 {
 	return s.port
+}
+
+// Get the API router for the server
+func (s *NetworkSocketApiServer) GetApiRouter() *mux.Router {
+	return s.apiRouter
 }

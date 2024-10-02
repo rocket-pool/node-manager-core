@@ -146,7 +146,7 @@ func (p *Parameter[_]) GetDefaultAsAny(network Network) any {
 
 // Deserializes a string into this parameter's value
 func (p *Parameter[_]) Deserialize(serializedParam string, network Network) error {
-	value, err := p.deserializeToType(serializedParam, network)
+	value, err := p.deserializeToType(serializedParam)
 	if err != nil {
 		// Set to the default option if none of the options match
 		if len(p.Options) > 0 {
@@ -201,7 +201,7 @@ func (p *Parameter[_]) ChangeNetwork(oldNetwork Network, newNetwork Network) {
 
 // Sets the default value for the provided network
 func (p *Parameter[Type]) SetDefaultValueForNetwork(serializedDefault string, network Network) error {
-	value, err := p.deserializeToType(serializedDefault, network)
+	value, err := p.deserializeToType(serializedDefault)
 	if err != nil {
 		return fmt.Errorf("cannot set default of parameter [%s] for network [%v]: %w", p.ID, network, err)
 	}
@@ -211,7 +211,7 @@ func (p *Parameter[Type]) SetDefaultValueForNetwork(serializedDefault string, ne
 }
 
 // Deserializes a string into this parameter's value type
-func (p *Parameter[Type]) deserializeToType(serializedDefault string, network Network) (Type, error) {
+func (p *Parameter[Type]) deserializeToType(serializedDefault string) (Type, error) {
 	var defaultValue Type
 	if len(p.Options) > 0 {
 		for _, option := range p.Options {
