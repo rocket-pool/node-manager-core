@@ -177,7 +177,21 @@ func SetDefaultsForNetworks(cfg IConfigSection, defaults map[string]any, network
 		if exists {
 			submap, isMap := subParams.(map[string]any)
 			if !isMap {
-				return fmt.Errorf("subsection [%s] is not a map, it is %s", name, reflect.TypeOf(subParams))
+				// Try an [any]any cast
+				submapAny, isAnyMap := subParams.(map[any]any)
+				if !isAnyMap {
+					return fmt.Errorf("subsection [%s] is not a map, it is %s", name, reflect.TypeOf(subParams))
+				}
+
+				// Convert the any map to a string map
+				submap = map[string]any{}
+				for key, value := range submapAny {
+					keyString, isString := key.(string)
+					if !isString {
+						return fmt.Errorf("subsection [%s] has a non-string key: %s", name, key)
+					}
+					submap[keyString] = value
+				}
 			}
 			err := SetDefaultsForNetworks(subconfig, submap, network)
 			if err != nil {
