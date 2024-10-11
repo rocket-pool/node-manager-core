@@ -555,7 +555,11 @@ func (c *StandardClient) getValidatorsByOpts(ctx context.Context, pubkeysOrIndic
 	data := make([]Validator, count)
 	validFlags := make([]bool, count)
 	var wg errgroup.Group
-	wg.SetLimit(runtime.NumCPU() / 2)
+	limit := runtime.NumCPU() / 2
+	if limit < 1 {
+		limit = 1 // Handle single core machines
+	}
+	wg.SetLimit(limit)
 	for i := 0; i < count; i += MaxRequestValidatorsCount {
 		i := i
 		max := i + MaxRequestValidatorsCount
